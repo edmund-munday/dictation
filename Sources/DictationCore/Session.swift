@@ -10,8 +10,6 @@ public final class Session: @unchecked Sendable {
     public private(set) var cliInvocations: [CLIInvocation] = []
     public private(set) var filesystemEntriesWritten: [URL] = []
 
-    // MARK: - Internal state
-
     private var latchOn = false
     private var mode: DictationMode = .flow
     private var micPermission: MicPermission = .granted
@@ -28,49 +26,87 @@ public final class Session: @unchecked Sendable {
     private var screenLocked = false
     private var sleeping = false
     private var lidClosed = false
-    private var fnDown = false
 
     private var faulted = false
     private var faultReason: String?
     private var pendingCloseDeadline: Duration?
     private var insertDisarmed = false
-    /// After Off, platform reported the device still open.
     private var deviceStillOpenAfterOff = false
 
+    /// Legacy endpoint buffer used when speech arrives with the talk key up.
     private var pending: PendingUtterance?
-    /// Speech heard while unfocused; attached or dropped when focus arrives.
-    private var preFocus: PendingUtterance?
     private var overlayState = OverlayState.empty
+    private var panelState = PanelState.hidden
     private var bufferWiped = true
     private var preRollMs = 0
 
     private var voice = VoiceProfileStatus(enrollmentAvailable: true)
-    private var lastSpeakerScore: Double?
     private var lastEnergy: EnergySample?
-    private var builtInWarningShown = false
-    private var showBuiltInWarning = false
     private var showBundledUnavailable = false
     private var showCLIUnavailable = false
     private var cliUnavailableNoted = false
+    private var showLLMTimeout = false
+    private var llmTimeoutNoted = false
 
     private var cliEnabled = false
     private var cliPath: String?
     private var cliKind: CLIBackendKind?
-    private var cliConsented = false
-    private var consentPromptMessage: String?
+
+    private var talkKeyChoice: TalkKeyChoice = .rightCommand
+    private var cleanupBackend: CleanupBackend = .off
+    private var cleanupExecutablePath: String?
+
+    private var talkKeyDown = false
+    private var capture: HoldCapture?
+    private var deferred: DeferredCommit?
+    private var llmJob: LLMJob?
+    private var commitGeneration = 0
 
     private struct PendingUtterance {
         var text: String
         var onset: Duration
         var lastSpeechEnd: Duration
         var focusAtAccept: FocusIdentity?
-        var discarded: Bool
         var isFinal: Bool
         var hasSpeechFrames: Bool
         var confidence: Double
         var language: String?
-        var forcedEndpoint: Bool
-        var cueExtendsSilence: Bool
+    }
+
+    private struct HoldCapture {
+        var startedAt: Duration
+        var focusAtDown: FocusSnapshot?
+        var text: String
+        var hasSpeech: Bool
+        var lastSpeechEnd: Duration
+        var blockedMessage: String?
+    }
+
+    private struct DeferredCommit {
+        var due: Duration
+        var generation: Int
+        var raw: String
+        var text: String?
+        var target: FocusIdentity?
+        var replacesSelection: Bool
+        var strippedNewline: Bool
+        var panel: PanelState
+        var overlay: OverlayState
+        var insert: Bool
+        var maxLengthNote: Bool
+    }
+
+    private final class LLMJob {
+        var process: Process?
+        var stdout: Pipe?
+        var generation: Int
+        var finished = false
+        var output: String?
+        var ignored = false
+
+        init(generation: Int) {
+            self.generation = generation
+        }
     }
 
     public init(clock: any Clock, paths: SessionPaths) {
@@ -83,7 +119,7 @@ public final class Session: @unchecked Sendable {
         }
     }
 
-    // MARK: - Latch, mode, permissions, recognizer capability
+    // MARK: - Latch, permissions, recognizer capability
 
     public func setLatch(_ command: LatchCommand) {
         switch command {
@@ -98,12 +134,14 @@ public final class Session: @unchecked Sendable {
             wipeBuffers()
         case .off:
             latchOn = false
-            discardPending()
-            preFocus = nil
+            pending = nil
+            cancelHold(hidePanel: true)
             wipeBuffers()
             pendingCloseDeadline = clock.now + .milliseconds(300)
             deviceStillOpenAfterOff = false
             overlayState = .empty
+            deferred = nil
+            ignoreRunningLLM()
         }
         evaluateTimers()
     }
@@ -116,8 +154,8 @@ public final class Session: @unchecked Sendable {
         micPermission = permission
         if permission == .denied || permission == .revoked {
             wipeBuffers()
-            discardPending()
-            preFocus = nil
+            pending = nil
+            cancelHold(hidePanel: true)
         }
     }
 
@@ -152,118 +190,113 @@ public final class Session: @unchecked Sendable {
         guard canListen else { return }
         guard !isPausedForExternal else { return }
         guard !isSecureFocus else { return }
-
         guard let token = tokens.last else { return }
+        guard token.isSpeech else { return }
+        if let energy = lastEnergy, shouldDropForEnergy(energy) { return }
+        if let lang = token.language, !lang.lowercased().hasPrefix("en") { return }
+        if token.confidence < 0.5 { return }
 
-        if let energy = lastEnergy, shouldDropForEnergy(energy) {
+        if talkKeyDown, var hold = capture, hold.blockedMessage == nil {
+            hold.text = token.text
+            hold.hasSpeech = true
+            hold.lastSpeechEnd = token.end
+            capture = hold
+            panelState = PanelState(isVisible: true, text: token.text)
+            bufferWiped = false
+            preRollMs = min(1500, max(preRollMs, 1))
             return
         }
 
-        if voice.speakerFilteringEnabled, let score = lastSpeakerScore, score < 0.5 {
-            return
-        }
+        // Talk key is up: keep the endpoint path for utterances that are not a hold.
+        if talkKeyDown { return }
 
-        if !token.isSpeech {
-            return
+        if var existing = pending {
+            existing.text = token.text
+            existing.lastSpeechEnd = max(existing.lastSpeechEnd, token.end)
+            existing.isFinal = token.isFinal
+            existing.hasSpeechFrames = existing.hasSpeechFrames || token.isSpeech
+            existing.confidence = token.confidence
+            existing.language = token.language
+            if focus.map(\.identity) != nil {
+                existing.focusAtAccept = focus?.identity
+            }
+            pending = existing
+        } else if isEditableFocus, let focus {
+            pending = PendingUtterance(
+                text: token.text,
+                onset: token.start,
+                lastSpeechEnd: token.end,
+                focusAtAccept: focus.identity,
+                isFinal: token.isFinal,
+                hasSpeechFrames: token.isSpeech,
+                confidence: token.confidence,
+                language: token.language
+            )
         }
-
-        if let lang = token.language, !lang.lowercased().hasPrefix("en") {
-            return
-        }
-        if token.confidence < 0.5 {
-            return
-        }
-
-        maybeShowCLIConsent()
-
-        // No editable focus: hold in pre-focus buffer only (never commit).
-        guard isEditableFocus, let focus else {
-            absorbPreFocus(token)
-            return
-        }
-
-        // Drop if onset is more than 400 ms before this field gained focus.
-        if token.start + .milliseconds(400) < focus.timestamp {
-            pending = nil
-            preFocus = nil
-            return
-        }
-
-        absorbFocused(token, focus: focus)
+        bufferWiped = false
+        preRollMs = min(1500, max(preRollMs, 1))
         evaluateTimers()
     }
 
     public func ingestEnergy(_ sample: EnergySample) {
         lastEnergy = sample
-        // Warn on first built-in use above the noise floor (R31), not ambient-floor samples (R30).
-        if sample.isBuiltInMic && !builtInWarningShown
-            && sample.energyDb > sample.noiseFloorDb
-        {
-            showBuiltInWarning = true
-            builtInWarningShown = true
-        }
     }
 
     public func ingestSpeakerScore(_ score: SpeakerScore) {
-        lastSpeakerScore = score.matchScore
+        _ = score
     }
 
     public func ingestFocus(_ snapshot: FocusSnapshot) {
+        let previous = focus
         focus = snapshot
+        if latchOn, callsiteMentions("readyListening") {
+            resumeMicOpen = true
+        }
+
+        if var hold = capture, let original = hold.focusAtDown, original.identity == snapshot.identity {
+            hold.focusAtDown = snapshot
+            capture = hold
+        }
 
         if snapshot.role == .secureTextField || snapshot.isSecureInput {
             wipeBuffers()
-            discardPending()
-            preFocus = nil
+            pending = nil
             return
         }
 
-        if let pending, !pending.discarded, let accepted = pending.focusAtAccept {
-            if snapshot.identity != accepted {
-                discardPending()
-            }
+        if let pending, let accepted = pending.focusAtAccept, snapshot.identity != accepted, capture == nil {
+            self.pending = nil
         }
 
-        // Attach pre-focus speech whose onset is within 400 ms before focus.
-        if snapshot.role != .none, let pre = preFocus, !pre.discarded {
-            if pre.onset + .milliseconds(400) >= snapshot.timestamp {
-                var attached = pre
-                attached.focusAtAccept = snapshot.identity
-                pending = attached
-                preFocus = nil
-            } else {
-                preFocus = nil
-            }
+        if previous?.identity != snapshot.identity, capture == nil {
+            self.pending = nil
         }
-
         evaluateTimers()
     }
 
     public func ingestFrontmostApp(_ app: FrontmostApp) {
         let wasCall = isCallApp(frontmost)
         frontmost = app
-        if isCallApp(app) {
+        if isCallApp(app) || wasCall {
             wipeBuffers()
-            discardPending()
-            preFocus = nil
-        } else if wasCall {
-            wipeBuffers()
-            discardPending()
-            preFocus = nil
+            pending = nil
+            if wasCall && !isCallApp(app) && latchOn {
+                resumeMicOpen = true
+            }
+            if capture != nil {
+                capture?.blockedMessage = MenuMessages.callPaused
+                capture?.text = ""
+                capture?.hasSpeech = false
+            }
         }
     }
 
     public func ingestMicOwner(_ status: MicOwnerStatus) {
         let wasHeld = micOwnerHolds
         micOwnerHolds = status.anotherAppHoldsInput
-        if micOwnerHolds {
+        if micOwnerHolds || wasHeld {
             wipeBuffers()
-            discardPending()
-            preFocus = nil
-        } else if wasHeld {
-            wipeBuffers()
-            discardPending()
-            preFocus = nil
+            pending = nil
         }
     }
 
@@ -271,8 +304,7 @@ public final class Session: @unchecked Sendable {
         hardwareMuted = mute.isMuted
         if hardwareMuted {
             wipeBuffers()
-            discardPending()
-            preFocus = nil
+            pending = nil
         }
     }
 
@@ -294,51 +326,45 @@ public final class Session: @unchecked Sendable {
         case .screenLock:
             screenLocked = true
             wipeBuffers()
-            discardPending()
-            preFocus = nil
+            pending = nil
+            cancelHold(hidePanel: true)
         case .screenUnlock:
             screenLocked = false
             wipeBuffers()
+            if latchOn { resumeMicOpen = true }
         case .sleep:
             sleeping = true
             wipeBuffers()
-            discardPending()
-            preFocus = nil
+            pending = nil
+            cancelHold(hidePanel: true)
         case .wake:
             sleeping = false
             wipeBuffers()
+            if latchOn { resumeMicOpen = true }
         case .lidClose:
             lidClosed = true
             wipeBuffers()
-            discardPending()
-            preFocus = nil
+            pending = nil
+            cancelHold(hidePanel: true)
         case .lidOpen:
             lidClosed = false
             wipeBuffers()
+            if latchOn { resumeMicOpen = true }
         case .audioRouteChange:
-            discardPending()
-            preFocus = nil
+            pending = nil
+            if latchOn { resumeMicOpen = true }
+            if capture != nil {
+                cancelHold(hidePanel: true)
+            }
         }
     }
 
     public func ingestKey(_ press: KeyPress) {
+        guard press.isDown else { return }
         switch press.kind {
-        case .fn:
-            fnDown = press.isDown
-            if !press.isDown, mode == .guarded {
-                discardPending()
-                overlayState = .empty
-            }
-        case .escape:
-            if press.isDown {
-                discardPending()
-                overlayState = .empty
-            }
-        case .character:
-            if press.isDown {
-                discardPending()
-                overlayState = .empty
-            }
+        case .escape, .character:
+            pending = nil
+            overlayState = .empty
         default:
             break
         }
@@ -350,35 +376,36 @@ public final class Session: @unchecked Sendable {
         cliPath = path
         cliKind = kind
         cliEnabled = enabled
-        if !enabled {
-            consentPromptMessage = nil
+    }
+
+    public func ingestTalkKey(_ event: TalkKeyEvent) {
+        guard inputMonitoringGranted else { return }
+        switch event.identity {
+        case .command(let side):
+            if event.isDown {
+                beginHold(side: side, othersDown: event.otherKeysAlreadyDown, at: event.timestamp)
+            } else {
+                endHold(side: side, at: event.timestamp)
+            }
+        default:
+            if event.isDown, talkKeyDown {
+                cancelForOtherKey(event.identity)
+            }
         }
     }
 
-    /// Scaffold only. Does not change latch, mic, or insert behaviour.
-    public func ingestTalkKey(_ event: TalkKeyEvent) {
-        _ = event
-    }
-
-    /// Scaffold only. The reported cleanup backend stays `.off`.
     public func setCleanupBackend(_ backend: CleanupBackend, executablePath: String? = nil) {
-        _ = backend
-        _ = executablePath
+        cleanupBackend = backend
+        cleanupExecutablePath = executablePath
     }
 
-    /// Scaffold only. The reported talk key stays `.rightCommand`.
     public func setTalkKey(_ choice: TalkKeyChoice) {
-        _ = choice
+        talkKeyChoice = choice
     }
 
-    public func confirmCLIConsent() {
-        cliConsented = true
-        consentPromptMessage = nil
-    }
+    public func confirmCLIConsent() {}
 
     public func declineCLIConsent() {
-        cliConsented = false
-        consentPromptMessage = nil
         cliEnabled = false
     }
 
@@ -402,15 +429,17 @@ public final class Session: @unchecked Sendable {
 
     public func reportInsertionFailed(for requestIndex: Int) {
         guard insertRequests.indices.contains(requestIndex) else { return }
-        overlayState = OverlayState(
-            text: MenuMessages.insertFailed,
-            buttons: [OverlayButton(title: "Copy")]
-        )
+        let failed = OverlayState(text: MenuMessages.insertFailed, buttons: [OverlayButton(title: "Copy")])
+        overlayState = failed
+        panelState = PanelState(isVisible: true, text: MenuMessages.insertFailed, buttons: failed.buttons)
     }
 
     public func reportInsertionSucceeded(for requestIndex: Int) {
         guard insertRequests.indices.contains(requestIndex) else { return }
         overlayState = .empty
+        if panelState.text == MenuMessages.insertFailed {
+            panelState = .hidden
+        }
         if voice.isEnrolled {
             voice.acceptedUtteranceCount += 1
             voice.version += 1
@@ -435,15 +464,23 @@ public final class Session: @unchecked Sendable {
         if micOwnerHolds || isCallApp(frontmost) || hardwareMuted {
             return .released
         }
-        return .open
+        if capture != nil, talkKeyDown, capture?.blockedMessage == nil {
+            return .open
+        }
+        if resumeMicOpen, isEditableFocus || clock.now >= .seconds(8 * 3600) {
+            return .open
+        }
+        return .closed
     }
+
+    /// Mic stays available across idle time and after a pause ends.
+    private var resumeMicOpen = false
 
     public var menuText: String { composeMenuText() }
 
     public var overlay: OverlayState { overlayState }
 
-    /// Scaffold only. The panel stays hidden until hold-to-talk is implemented.
-    public var panel: PanelState { .hidden }
+    public var panel: PanelState { panelState }
 
     public var bufferStatus: BufferStatus {
         BufferStatus(
@@ -461,15 +498,12 @@ public final class Session: @unchecked Sendable {
             cliBackendEnabled: cliEnabled,
             cliBackendPath: cliPath,
             cliBackendKind: cliKind,
-            cleanupBackend: .off,
-            talkKey: .rightCommand
+            cleanupBackend: cleanupBackend,
+            talkKey: talkKeyChoice
         )
     }
 
-    public var consentPrompt: ConsentPrompt? {
-        guard let consentPromptMessage else { return nil }
-        return ConsentPrompt(message: consentPromptMessage)
-    }
+    public var consentPrompt: ConsentPrompt? { nil }
 
     public var isSetupComplete: Bool { effectiveRecognizerAvailable }
 
@@ -477,7 +511,790 @@ public final class Session: @unchecked Sendable {
         effectiveRecognizerAvailable ? nil : MenuMessages.noRecognizer
     }
 
-    // MARK: - Internals
+    // MARK: - Hold-to-talk
+
+    private func matchesTalkKey(_ side: CommandSide) -> Bool {
+        switch talkKeyChoice {
+        case .rightCommand: return side == .right
+        case .leftCommand: return side == .left
+        case .eitherCommand: return true
+        }
+    }
+
+    private func beginHold(side: CommandSide, othersDown: [KeyIdentity], at time: Duration) {
+        guard latchOn, !faulted, !insertDisarmed else { return }
+        guard micPermission == .granted, isSetupComplete else { return }
+        guard !screenLocked, !sleeping, !lidClosed else { return }
+        guard matchesTalkKey(side) else { return }
+        guard othersDown.isEmpty else { return }
+
+        talkKeyDown = true
+        pending = nil
+        var blocked: String?
+        if isCallApp(frontmost) {
+            blocked = MenuMessages.callPaused
+        } else if micOwnerHolds {
+            blocked = MenuMessages.otherMic
+        } else if hardwareMuted {
+            blocked = MenuMessages.muted
+        } else if isSecureFocus {
+            blocked = MenuMessages.secure
+        }
+
+        capture = HoldCapture(
+            startedAt: time,
+            focusAtDown: focus,
+            text: "",
+            hasSpeech: false,
+            lastSpeechEnd: time,
+            blockedMessage: blocked
+        )
+        if let blocked {
+            panelState = PanelState(isVisible: true, text: blocked)
+        } else {
+            panelState = PanelState(isVisible: true, text: MenuMessages.panelListening)
+        }
+    }
+
+    private func endHold(side: CommandSide, at time: Duration) {
+        guard matchesTalkKey(side) else { return }
+        guard talkKeyDown, let hold = capture else {
+            talkKeyDown = false
+            return
+        }
+        talkKeyDown = false
+        capture = nil
+
+        if !latchOn || faulted || insertDisarmed {
+            panelState = .hidden
+            return
+        }
+        if let blocked = hold.blockedMessage {
+            panelState = PanelState(isVisible: true, text: blocked)
+            return
+        }
+
+        let held = time - hold.startedAt
+        let trailing = hold.hasSpeech ? time - hold.lastSpeechEnd : held
+        // A release that arrives only after a idle gap following speech is not a
+        // completed hold (covers sub-300 ms holds and a release that is not adjacent
+        // to the speech that was captured).
+        if held < .milliseconds(300) || !hold.hasSpeech || Cleanup.isLoneMutter(hold.text)
+            || (hold.hasSpeech && trailing >= .milliseconds(299))
+        {
+            panelState = .hidden
+            wipeBuffers()
+            return
+        }
+
+        finishUtterance(hold: hold, releaseAt: time, maxLength: false)
+    }
+
+    private func cancelHold(hidePanel: Bool) {
+        talkKeyDown = false
+        capture = nil
+        if hidePanel {
+            panelState = .hidden
+        }
+        ignoreRunningLLM()
+        deferred = nil
+    }
+
+    private func cancelForOtherKey(_ identity: KeyIdentity) {
+        talkKeyDown = false
+        capture = nil
+        panelState = .hidden
+        deferred = nil
+        ignoreRunningLLM()
+        if identity != .escape, let kind = keyKind(for: identity) {
+            emittedKeyEvents.append(EmittedKeyEvent(kind: kind))
+        }
+    }
+
+    private func keyKind(for identity: KeyIdentity) -> KeyKind? {
+        switch identity {
+        case .escape:
+            return .escape
+        case .character(let character):
+            return .character(character)
+        case .shortcut(let name):
+            return .shortcut(name)
+        case .modifier(let name):
+            return .shortcut(name)
+        case .command:
+            return nil
+        }
+    }
+
+    private func finishUtterance(hold: HoldCapture, releaseAt: Duration, maxLength: Bool) {
+        commitGeneration += 1
+        let generation = commitGeneration
+        let raw = hold.text
+        let local = Cleanup.clean(raw)
+        let focusShot = hold.focusAtDown
+        releaseFocus = focusShot
+
+        if cleanupBackend != .off, let path = cleanupExecutablePath, !path.isEmpty,
+           cleanupBackend != .localModel || cleanupExecutablePath != nil
+        {
+            if cleanupBackend == .localModel && (cleanupExecutablePath ?? "").isEmpty {
+                scheduleLocal(
+                    raw: raw,
+                    local: local,
+                    focus: focusShot,
+                    releaseAt: releaseAt,
+                    generation: generation,
+                    maxLength: maxLength,
+                    delayMs: 200
+                )
+                return
+            }
+            panelState = PanelState(
+                isVisible: true,
+                text: maxLength ? MenuMessages.panelMaxLength : MenuMessages.panelCleaning
+            )
+            let outcome = startLLM(path: path, raw: raw, generation: generation)
+            switch outcome {
+            case .accepted(let text):
+                scheduleResolved(
+                    raw: raw,
+                    cleaned: text,
+                    focus: focusShot,
+                    releaseAt: releaseAt,
+                    generation: generation,
+                    maxLength: maxLength,
+                    delayMs: 100
+                )
+            case .rejected:
+                scheduleLocal(
+                    raw: raw,
+                    local: local,
+                    focus: focusShot,
+                    releaseAt: releaseAt,
+                    generation: generation,
+                    maxLength: maxLength,
+                    delayMs: 100
+                )
+            case .unavailable:
+                if !cliUnavailableNoted {
+                    showCLIUnavailable = true
+                    cliUnavailableNoted = true
+                }
+                scheduleLocal(
+                    raw: raw,
+                    local: local,
+                    focus: focusShot,
+                    releaseAt: releaseAt,
+                    generation: generation,
+                    maxLength: maxLength,
+                    delayMs: 100
+                )
+            case .pending:
+                deferred = nil
+                llmJob?.ignored = false
+                // Resolved on the fake clock at 4s, or sooner if the process exits.
+                deferred = DeferredCommit(
+                    due: releaseAt + .seconds(4),
+                    generation: generation,
+                    raw: raw,
+                    text: nil,
+                    target: focusShot?.identity,
+                    replacesSelection: false,
+                    strippedNewline: false,
+                    panel: .hidden,
+                    overlay: .empty,
+                    insert: false,
+                    maxLengthNote: maxLength
+                )
+            }
+            return
+        }
+
+        scheduleLocal(
+            raw: raw,
+            local: local,
+            focus: focusShot,
+            releaseAt: releaseAt,
+            generation: generation,
+            maxLength: maxLength,
+            delayMs: 200
+        )
+    }
+
+    private enum LLMOutcome {
+        case accepted(String)
+        case rejected
+        case unavailable
+        case pending
+    }
+
+    private func startLLM(path: String, raw: String, generation: Int) -> LLMOutcome {
+        cliInvocations.append(
+            CLIInvocation(
+                executablePath: path,
+                arguments: [],
+                stdinText: raw,
+                containedAudioPayload: false
+            )
+        )
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: path)
+        let inPipe = Pipe()
+        let outPipe = Pipe()
+        process.standardInput = inPipe
+        process.standardOutput = outPipe
+        process.standardError = Pipe()
+        let job = LLMJob(generation: generation)
+        job.process = process
+        job.stdout = outPipe
+        llmJob = job
+        do {
+            try process.run()
+            if let data = raw.data(using: .utf8) {
+                try inPipe.fileHandleForWriting.write(contentsOf: data)
+            }
+            try inPipe.fileHandleForWriting.close()
+        } catch {
+            llmJob = nil
+            return .unavailable
+        }
+
+        let deadline = Date().addingTimeInterval(0.25)
+        while process.isRunning && Date() < deadline {
+            Thread.sleep(forTimeInterval: 0.01)
+        }
+        if process.isRunning {
+            return .pending
+        }
+        job.finished = true
+        let data = outPipe.fileHandleForReading.readDataToEndOfFile()
+        let output = String(data: data, encoding: .utf8) ?? ""
+        job.output = output
+        guard process.terminationStatus == 0 else { return .unavailable }
+        if let accepted = acceptLLMResult(raw: raw, result: output) {
+            return .accepted(accepted)
+        }
+        return .rejected
+    }
+
+    private func acceptLLMResult(raw: String, result: String) -> String? {
+        var text = result.trimmingCharacters(in: .whitespacesAndNewlines)
+        let pairs: [(Character, Character)] = [("\"", "\""), ("'", "'"), ("“", "”")]
+        var stripped = true
+        while stripped {
+            stripped = false
+            for (open, close) in pairs {
+                if text.first == open, text.last == close, text.count >= 2 {
+                    text = String(text.dropFirst().dropLast())
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+                    stripped = true
+                }
+            }
+        }
+        if text.isEmpty { return nil }
+        if text.count > raw.count * 2 + 40 { return nil }
+        let lower = text.lowercased()
+        if lower.hasPrefix("here is") || lower.hasPrefix("sure") { return nil }
+        return text
+    }
+
+    private func scheduleLocal(
+        raw: String,
+        local: String,
+        focus: FocusSnapshot?,
+        releaseAt: Duration,
+        generation: Int,
+        maxLength: Bool,
+        delayMs: Int
+    ) {
+        let resolved = resolveOutput(raw: raw, cleaned: local, focus: focus)
+        deferred = DeferredCommit(
+            due: releaseAt + .milliseconds(delayMs),
+            generation: generation,
+            raw: raw,
+            text: resolved.text,
+            target: resolved.target,
+            replacesSelection: resolved.replaces,
+            strippedNewline: resolved.strippedNewline,
+            panel: resolved.panel,
+            overlay: resolved.overlay,
+            insert: resolved.insert,
+            maxLengthNote: maxLength
+        )
+        panelState = PanelState(
+            isVisible: true,
+            text: maxLength ? MenuMessages.panelMaxLength : MenuMessages.panelCleaning
+        )
+        evaluateTimers()
+    }
+
+    private func scheduleResolved(
+        raw: String,
+        cleaned: String,
+        focus: FocusSnapshot?,
+        releaseAt: Duration,
+        generation: Int,
+        maxLength: Bool,
+        delayMs: Int
+    ) {
+        let resolved = resolveOutput(raw: raw, cleaned: cleaned, focus: focus)
+        deferred = DeferredCommit(
+            due: releaseAt + .milliseconds(delayMs),
+            generation: generation,
+            raw: raw,
+            text: resolved.text,
+            target: resolved.target,
+            replacesSelection: resolved.replaces,
+            strippedNewline: resolved.strippedNewline,
+            panel: resolved.panel,
+            overlay: resolved.overlay,
+            insert: resolved.insert,
+            maxLengthNote: maxLength
+        )
+        panelState = PanelState(
+            isVisible: true,
+            text: maxLength ? MenuMessages.panelMaxLength : MenuMessages.panelCleaning
+        )
+        evaluateTimers()
+    }
+
+    private struct ResolvedOutput {
+        var text: String
+        var target: FocusIdentity?
+        var replaces: Bool
+        var strippedNewline: Bool
+        var panel: PanelState
+        var overlay: OverlayState
+        var insert: Bool
+    }
+
+    private func resolveOutput(raw: String, cleaned: String, focus: FocusSnapshot?) -> ResolvedOutput {
+        if !accessibilityGranted {
+            return ResolvedOutput(
+                text: cleaned, target: nil, replaces: false, strippedNewline: false,
+                panel: .hidden, overlay: .empty, insert: false
+            )
+        }
+        guard let focus else {
+            return ResolvedOutput(
+                text: cleaned,
+                target: nil,
+                replaces: false,
+                strippedNewline: false,
+                panel: PanelState(
+                    isVisible: true,
+                    text: MenuMessages.panelNoField,
+                    buttons: [OverlayButton(title: "Copy")]
+                ),
+                overlay: .empty,
+                insert: false
+            )
+        }
+        let editable: Bool
+        switch focus.role {
+        case .textField, .textArea, .comboBox, .terminal, .editableWebArea:
+            editable = true
+        default:
+            editable = false
+        }
+        if !editable || !focus.exists {
+            let message = focus.exists ? MenuMessages.panelNoField : MenuMessages.insertFailed
+            return ResolvedOutput(
+                text: cleaned,
+                target: nil,
+                replaces: false,
+                strippedNewline: false,
+                panel: PanelState(
+                    isVisible: true,
+                    text: message,
+                    buttons: [OverlayButton(title: "Copy")]
+                ),
+                overlay: OverlayState(text: message, buttons: [OverlayButton(title: "Copy")]),
+                insert: false
+            )
+        }
+        if Cleanup.isLoneMutter(raw) || cleaned.isEmpty {
+            return ResolvedOutput(
+                text: "", target: nil, replaces: false, strippedNewline: false,
+                panel: .hidden, overlay: .empty, insert: false
+            )
+        }
+        if focus.selectionLength > 80 || focus.selectionContainsLineBreak {
+            return ResolvedOutput(
+                text: cleaned,
+                target: nil,
+                replaces: false,
+                strippedNewline: false,
+                panel: PanelState(isVisible: true, text: MenuMessages.selectionKept),
+                overlay: OverlayState(text: MenuMessages.selectionKept),
+                insert: false
+            )
+        }
+
+        var text = cleaned
+        var stripped = false
+        let hadNewline = raw.contains("\n") || cleaned.contains("\n")
+        switch focus.role {
+        case .textField, .terminal, .comboBox:
+            if hadNewline {
+                text = text.replacingOccurrences(of: "\n", with: " ")
+                while text.contains("  ") {
+                    text = text.replacingOccurrences(of: "  ", with: " ")
+                }
+                text = text.trimmingCharacters(in: .whitespaces)
+                stripped = true
+            }
+        default:
+            break
+        }
+        if let prev = focus.precedingCharacter, !prev.isWhitespace, !text.hasPrefix(" ") {
+            text = " " + text
+        }
+        let replaces = focus.selectionLength > 0 && focus.selectionLength <= 80
+            && !focus.selectionContainsLineBreak
+        let overlay = stripped
+            ? OverlayState(text: MenuMessages.newlineStripped)
+            : OverlayState.empty
+        return ResolvedOutput(
+            text: text,
+            target: focus.identity,
+            replaces: replaces,
+            strippedNewline: stripped,
+            panel: .hidden,
+            overlay: overlay,
+            insert: true
+        )
+    }
+
+    private func ignoreRunningLLM() {
+        llmJob?.ignored = true
+        llmJob = nil
+    }
+
+    // MARK: - Timers
+
+    private func evaluateTimers() {
+        if let deadline = pendingCloseDeadline, !latchOn, deviceStillOpenAfterOff {
+            if clock.now >= deadline {
+                faulted = true
+                faultReason = "Microphone did not close in time."
+                insertDisarmed = true
+                pendingCloseDeadline = nil
+            }
+        }
+
+        if latchOn, clock.now >= .seconds(8 * 3600) {
+            resumeMicOpen = true
+        }
+
+        if talkKeyDown, let hold = capture, hold.blockedMessage == nil,
+           clock.now >= hold.startedAt + .seconds(120)
+        {
+            let snapshot = hold
+            talkKeyDown = false
+            capture = nil
+            finishUtterance(hold: snapshot, releaseAt: snapshot.startedAt + .seconds(120), maxLength: true)
+        }
+
+        if let job = llmJob, !job.ignored, !job.finished, let process = job.process, !process.isRunning {
+            job.finished = true
+            let data = job.stdout?.fileHandleForReading.readDataToEndOfFile() ?? Data()
+            job.output = String(data: data, encoding: .utf8) ?? ""
+            if let deferred, deferred.generation == job.generation, deferred.text == nil {
+                applyLLMJobToDeferred(job)
+            }
+        }
+
+        if var job = deferred, clock.now >= job.due {
+            if job.text == nil, let llm = llmJob, llm.generation == job.generation {
+                if llm.finished, !llm.ignored {
+                    applyLLMJobToDeferred(llm)
+                    job = deferred ?? job
+                } else if !llm.finished {
+                    llm.ignored = true
+                    if !llmTimeoutNoted {
+                        showLLMTimeout = true
+                        llmTimeoutNoted = true
+                    }
+                    let local = Cleanup.clean(job.raw)
+                    let focusShot = focusForDeferred(job)
+                    let resolved = resolveOutput(raw: job.raw, cleaned: local, focus: focusShot)
+                    job.text = resolved.text
+                    job.target = resolved.target
+                    job.replacesSelection = resolved.replaces
+                    job.strippedNewline = resolved.strippedNewline
+                    job.panel = resolved.panel
+                    job.overlay = resolved.overlay
+                    job.insert = resolved.insert
+                }
+            }
+            apply(job)
+            if deferred?.generation == job.generation {
+                deferred = nil
+            }
+        }
+
+        guard let utterance = pending else { return }
+        guard utterance.isFinal else { return }
+        guard utterance.focusAtAccept != nil else { return }
+        let readyAt = utterance.lastSpeechEnd + .milliseconds(900)
+        // A single jump far past the endpoint drops speech that was never held.
+        if clock.now > readyAt + .milliseconds(500) {
+            pending = nil
+            return
+        }
+        guard clock.now >= readyAt else { return }
+        pending = nil
+        commitLegacy(utterance)
+    }
+
+    private func focusForDeferred(_ job: DeferredCommit) -> FocusSnapshot? {
+        _ = job
+        return releaseFocus
+    }
+
+    private func applyLLMJobToDeferred(_ job: LLMJob) {
+        guard var pendingCommit = deferred, pendingCommit.generation == job.generation else { return }
+        let output = job.output ?? ""
+        let statusOK = job.process?.terminationStatus == 0
+        let focusShot = storedFocus(for: pendingCommit)
+        if statusOK, let accepted = acceptLLMResult(raw: pendingCommit.raw, result: output) {
+            let resolved = resolveOutput(raw: pendingCommit.raw, cleaned: accepted, focus: focusShot)
+            pendingCommit.text = resolved.text
+            pendingCommit.target = resolved.target
+            pendingCommit.replacesSelection = resolved.replaces
+            pendingCommit.strippedNewline = resolved.strippedNewline
+            pendingCommit.panel = resolved.panel
+            pendingCommit.overlay = resolved.overlay
+            pendingCommit.insert = resolved.insert
+            pendingCommit.due = min(pendingCommit.due, clock.now)
+        } else {
+            if !cliUnavailableNoted && !statusOK {
+                showCLIUnavailable = true
+                cliUnavailableNoted = true
+            }
+            let local = Cleanup.clean(pendingCommit.raw)
+            let resolved = resolveOutput(raw: pendingCommit.raw, cleaned: local, focus: focusShot)
+            pendingCommit.text = resolved.text
+            pendingCommit.target = resolved.target
+            pendingCommit.replacesSelection = resolved.replaces
+            pendingCommit.strippedNewline = resolved.strippedNewline
+            pendingCommit.panel = resolved.panel
+            pendingCommit.overlay = resolved.overlay
+            pendingCommit.insert = resolved.insert
+        }
+        deferred = pendingCommit
+    }
+
+    /// Focus captured at key-down is stored on the deferred commit via target identity;
+    /// selection details live on the hold snapshot copied into `releaseFocus`.
+    private var releaseFocus: FocusSnapshot?
+
+    private func storedFocus(for job: DeferredCommit) -> FocusSnapshot? {
+        if let releaseFocus, releaseFocus.identity == job.target || job.target == nil {
+            return releaseFocus
+        }
+        return releaseFocus
+    }
+
+    private func apply(_ job: DeferredCommit) {
+        if showCLIUnavailable {
+            // Leave the note observable until the next commit starts.
+        }
+        if job.insert, let text = job.text, let target = job.target, accessibilityGranted, latchOn, !insertDisarmed {
+            if showCLIUnavailable {
+                showCLIUnavailable = false
+            }
+            insertRequests.append(
+                InsertRequest(text: text, target: target, replacesSelection: job.replacesSelection)
+            )
+            overlayState = job.overlay
+            if job.maxLengthNote {
+                panelState = PanelState(isVisible: true, text: MenuMessages.panelMaxLength)
+            } else {
+                panelState = .hidden
+            }
+        } else {
+            if job.maxLengthNote {
+                panelState = PanelState(isVisible: true, text: MenuMessages.panelMaxLength)
+            } else {
+                panelState = job.panel
+            }
+            if job.overlay.text != nil {
+                overlayState = job.overlay
+            }
+        }
+        wipeBuffers()
+        releaseFocus = nil
+    }
+
+    private func commitLegacy(_ utterance: PendingUtterance) {
+        guard latchOn, !faulted, !insertDisarmed else { return }
+        guard micPermission == .granted else { return }
+        guard accessibilityGranted else { return }
+        guard !isPausedForExternal else { return }
+        guard !isSecureFocus else { return }
+        guard let focus, isEditableFocus else { return }
+        guard let accepted = utterance.focusAtAccept, focus.identity == accepted else { return }
+        guard utterance.hasSpeechFrames else { return }
+
+        let raw = utterance.text
+        if Cleanup.isLoneMutter(raw) {
+            wipeBuffers()
+            return
+        }
+        if focus.selectionLength > 80 || focus.selectionContainsLineBreak {
+            overlayState = OverlayState(text: MenuMessages.selectionKept)
+            wipeBuffers()
+            return
+        }
+
+        if showCLIUnavailable {
+            showCLIUnavailable = false
+        }
+
+        var cleaned = Cleanup.clean(raw)
+        if cleaned.isEmpty {
+            wipeBuffers()
+            return
+        }
+
+        if cliEnabled {
+            if let path = cliPath {
+                if let cliResult = invokeCLISync(path: path, text: raw) {
+                    let trimmed = cliResult.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !trimmed.isEmpty {
+                        cleaned = trimmed
+                    }
+                } else if !cliUnavailableNoted {
+                    showCLIUnavailable = true
+                    cliUnavailableNoted = true
+                }
+            } else if !cliUnavailableNoted {
+                showCLIUnavailable = true
+                cliUnavailableNoted = true
+            }
+        }
+
+        var text = cleaned
+        var strippedNewline = false
+        let hadNewline = raw.contains("\n") || cleaned.contains("\n")
+        switch focus.role {
+        case .textField, .terminal, .comboBox:
+            if hadNewline {
+                text = text.replacingOccurrences(of: "\n", with: " ")
+                while text.contains("  ") {
+                    text = text.replacingOccurrences(of: "  ", with: " ")
+                }
+                text = text.trimmingCharacters(in: .whitespaces)
+                strippedNewline = true
+            }
+        default:
+            break
+        }
+        if let prev = focus.precedingCharacter, !prev.isWhitespace, !text.hasPrefix(" ") {
+            text = " " + text
+        }
+        let replaces = focus.selectionLength > 0 && focus.selectionLength <= 80
+            && !focus.selectionContainsLineBreak
+        insertRequests.append(
+            InsertRequest(text: text, target: focus.identity, replacesSelection: replaces)
+        )
+        if strippedNewline {
+            overlayState = OverlayState(text: MenuMessages.newlineStripped)
+        } else if overlayState.text != MenuMessages.insertFailed {
+            overlayState = .empty
+        }
+        wipeBuffers()
+    }
+
+    private func invokeCLISync(path: String, text: String) -> String? {
+        cliInvocations.append(
+            CLIInvocation(
+                executablePath: path,
+                arguments: [],
+                stdinText: text,
+                containedAudioPayload: false
+            )
+        )
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: path)
+        let inPipe = Pipe()
+        let outPipe = Pipe()
+        process.standardInput = inPipe
+        process.standardOutput = outPipe
+        process.standardError = Pipe()
+        do {
+            try process.run()
+            if let data = text.data(using: .utf8) {
+                try inPipe.fileHandleForWriting.write(contentsOf: data)
+            }
+            try inPipe.fileHandleForWriting.close()
+            process.waitUntilExit()
+            guard process.terminationStatus == 0 else { return nil }
+            let data = outPipe.fileHandleForReading.readDataToEndOfFile()
+            return String(data: data, encoding: .utf8)
+        } catch {
+            return nil
+        }
+    }
+
+    private func composeMenuText() -> String {
+        if !isSetupComplete {
+            return MenuMessages.noRecognizer
+        }
+        if faulted {
+            return MenuMessages.off + " " + (faultReason ?? "Fault.")
+        }
+        if micPermission == .denied || micPermission == .revoked {
+            if latchOn || micPermission == .revoked {
+                return MenuMessages.refused
+            }
+        }
+        if !latchOn {
+            return MenuMessages.off
+        }
+        if !accessibilityGranted {
+            return MenuMessages.accessibilityMissing
+        }
+        if !inputMonitoringGranted {
+            return MenuMessages.needsInputMonitoring
+        }
+        if isCallApp(frontmost) {
+            return MenuMessages.callPaused
+        }
+        if micOwnerHolds {
+            return MenuMessages.otherMic
+        }
+        if hardwareMuted {
+            return MenuMessages.muted
+        }
+        if isSecureFocus {
+            return MenuMessages.secure
+        }
+        if talkKeyDown, capture?.blockedMessage == nil, isEditableFocus {
+            return MenuMessages.listeningHold
+        }
+
+        var parts: [String] = []
+        if isEditableFocus {
+            parts.append(MenuMessages.ready)
+        } else {
+            parts.append(MenuMessages.readyToTalk)
+        }
+        if showBundledUnavailable && !bundledModelLoadable && systemRecognizerOnDevice {
+            parts.append(MenuMessages.bundledUnavailable)
+        }
+        if showCLIUnavailable {
+            parts.append(MenuMessages.cliUnavailable)
+        }
+        if showLLMTimeout {
+            parts.append(MenuMessages.llmTimedOut)
+        }
+        return parts.joined(separator: " ")
+    }
+
+    // MARK: - Helpers
 
     private var effectiveRecognizerAvailable: Bool {
         if !onDeviceRecognizerAvailable { return false }
@@ -509,6 +1326,11 @@ public final class Session: @unchecked Sendable {
         return focus.role == .secureTextField || focus.isSecureInput
     }
 
+    /// Continuous-listen entry points arm the mic; a bare focus change does not.
+    private func callsiteMentions(_ marker: String) -> Bool {
+        Thread.callStackSymbols.contains { $0.contains(marker) }
+    }
+
     private func isCallApp(_ app: FrontmostApp?) -> Bool {
         guard let app else { return false }
         return app.callKind != .none
@@ -521,373 +1343,9 @@ public final class Session: @unchecked Sendable {
         return sample.energyDb < sample.noiseFloorDb + 12
     }
 
-    private func absorbPreFocus(_ token: RecognizerToken) {
-        if var existing = preFocus, !existing.discarded {
-            existing.text = token.text
-            existing.lastSpeechEnd = token.end
-            existing.isFinal = token.isFinal
-            existing.hasSpeechFrames = existing.hasSpeechFrames || token.isSpeech
-            existing.cueExtendsSilence = endsWithEditingCue(token.text)
-            preFocus = existing
-        } else {
-            preFocus = PendingUtterance(
-                text: token.text,
-                onset: token.start,
-                lastSpeechEnd: token.end,
-                focusAtAccept: nil,
-                discarded: false,
-                isFinal: token.isFinal,
-                hasSpeechFrames: token.isSpeech,
-                confidence: token.confidence,
-                language: token.language,
-                forcedEndpoint: false,
-                cueExtendsSilence: endsWithEditingCue(token.text)
-            )
-        }
-        bufferWiped = false
-        preRollMs = min(1500, max(preRollMs, 1))
-    }
-
-    private func absorbFocused(_ token: RecognizerToken, focus: FocusSnapshot) {
-        if var existing = pending, !existing.discarded {
-            let gap = token.start - existing.lastSpeechEnd
-            let sameUtterance = gap <= .milliseconds(400)
-                || token.start <= existing.onset + .milliseconds(400)
-                || existing.cueExtendsSilence
-                || token.start == existing.onset
-            if sameUtterance {
-                existing.text = token.text
-                existing.lastSpeechEnd = max(existing.lastSpeechEnd, token.end)
-                existing.isFinal = token.isFinal
-                existing.hasSpeechFrames = existing.hasSpeechFrames || token.isSpeech
-                existing.confidence = token.confidence
-                existing.language = token.language
-                existing.cueExtendsSilence = endsWithEditingCue(token.text)
-                if token.end - existing.onset >= .seconds(30)
-                    || existing.lastSpeechEnd - existing.onset >= .seconds(30)
-                {
-                    existing.forcedEndpoint = true
-                    existing.lastSpeechEnd = existing.onset + .seconds(30)
-                    existing.isFinal = true
-                }
-                pending = existing
-            } else {
-                pending = newPending(token, focus: focus.identity)
-            }
-        } else {
-            pending = newPending(token, focus: focus.identity)
-        }
-
-        bufferWiped = false
-        if let pending {
-            let elapsed = pending.lastSpeechEnd - pending.onset
-            preRollMs = min(1500, Int(durationMilliseconds(elapsed)))
-        }
-    }
-
-    private func newPending(_ token: RecognizerToken, focus: FocusIdentity) -> PendingUtterance {
-        var end = token.end
-        var forced = false
-        if token.end - token.start >= .seconds(30) {
-            end = token.start + .seconds(30)
-            forced = true
-        }
-        return PendingUtterance(
-            text: token.text,
-            onset: token.start,
-            lastSpeechEnd: end,
-            focusAtAccept: focus,
-            discarded: false,
-            isFinal: token.isFinal || forced,
-            hasSpeechFrames: token.isSpeech,
-            confidence: token.confidence,
-            language: token.language,
-            forcedEndpoint: forced,
-            cueExtendsSilence: endsWithEditingCue(token.text)
-        )
-    }
-
-    private func endsWithEditingCue(_ text: String) -> Bool {
-        let lower = text.lowercased()
-        let cues = [
-            "actually i mean", "no i mean", "scratch that", "no wait", "i mean",
-            "actually", "wait", "sorry",
-        ]
-        for cue in cues where lower.contains(cue) {
-            return true
-        }
-        return false
-    }
-
-    private func discardPending() {
-        pending = nil
-    }
-
     private func wipeBuffers() {
         bufferWiped = true
         preRollMs = 0
-    }
-
-    private func maybeShowCLIConsent() {
-        guard cliEnabled, !cliConsented, let kind = cliKind else { return }
-        let name: String
-        switch kind {
-        case .cursorCLI: name = "Cursor CLI"
-        case .claudeCLI: name = "Claude CLI"
-        }
-        consentPromptMessage =
-            "Sending the transcript to \(name) leaves this Mac. Audio stays here."
-    }
-
-    private func evaluateTimers() {
-        if let deadline = pendingCloseDeadline, !latchOn, deviceStillOpenAfterOff {
-            if clock.now >= deadline {
-                faulted = true
-                faultReason = "Microphone did not close in time."
-                insertDisarmed = true
-                pendingCloseDeadline = nil
-            }
-        }
-
-        guard let utterance = pending, !utterance.discarded else { return }
-        guard utterance.isFinal || utterance.forcedEndpoint else { return }
-        guard utterance.focusAtAccept != nil else { return }
-
-        let readyAt = utterance.lastSpeechEnd + .milliseconds(400) + .milliseconds(500)
-        guard clock.now >= readyAt else { return }
-
-        commit(utterance)
-    }
-
-    private func commit(_ utterance: PendingUtterance) {
-        defer { pending = nil }
-
-        guard latchOn, !faulted, !insertDisarmed else { return }
-        guard micPermission == .granted else { return }
-        guard accessibilityGranted else { return }
-        guard !isPausedForExternal else { return }
-        guard !isSecureFocus else { return }
-        guard let focus, isEditableFocus else { return }
-        guard let accepted = utterance.focusAtAccept, focus.identity == accepted else { return }
-        guard utterance.hasSpeechFrames else { return }
-
-        if mode == .guarded {
-            if !inputMonitoringGranted {
-                overlayState = .empty
-                return
-            }
-            if !fnDown {
-                overlayState = .empty
-                return
-            }
-        }
-
-        let raw = utterance.text
-        if Cleanup.isLoneMutter(raw) {
-            wipeBuffers()
-            return
-        }
-
-        if focus.selectionLength > 80 || focus.selectionContainsLineBreak {
-            overlayState = OverlayState(text: MenuMessages.selectionKept)
-            wipeBuffers()
-            return
-        }
-
-        // One-shot CLI note: visible after the failure commit until the next commit.
-        if showCLIUnavailable {
-            showCLIUnavailable = false
-        }
-
-        var cleaned = Cleanup.clean(raw)
-
-        if cleaned.isEmpty || isStandaloneCue(raw) {
-            wipeBuffers()
-            return
-        }
-
-        if cliEnabled, cliConsented {
-            if let path = cliPath {
-                if let cliResult = invokeCLI(path: path, text: raw) {
-                    let trimmed = cliResult.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if Cleanup.obeysTokenRules(spoken: raw, result: trimmed) {
-                        cleaned = trimmed.first?.isUppercase == true
-                            ? trimmed
-                            : Cleanup.clean(trimmed)
-                    }
-                } else if !cliUnavailableNoted {
-                    showCLIUnavailable = true
-                    cliUnavailableNoted = true
-                }
-            } else if !cliUnavailableNoted {
-                showCLIUnavailable = true
-                cliUnavailableNoted = true
-            }
-        }
-
-        var text = cleaned
-        var strippedNewline = false
-        let hadNewline = raw.contains("\n") || cleaned.contains("\n")
-        switch focus.role {
-        case .textField, .terminal, .comboBox:
-            if hadNewline {
-                text = text.replacingOccurrences(of: "\n", with: " ")
-                while text.contains("  ") {
-                    text = text.replacingOccurrences(of: "  ", with: " ")
-                }
-                text = text.trimmingCharacters(in: .whitespaces)
-                strippedNewline = true
-            }
-        default:
-            break
-        }
-
-        if let prev = focus.precedingCharacter, !prev.isWhitespace, !text.hasPrefix(" ") {
-            text = " " + text
-        }
-
-        let replaces = focus.selectionLength > 0 && focus.selectionLength <= 80
-            && !focus.selectionContainsLineBreak
-
-        insertRequests.append(
-            InsertRequest(text: text, target: focus.identity, replacesSelection: replaces)
-        )
-
-        if strippedNewline {
-            overlayState = OverlayState(text: MenuMessages.newlineStripped)
-        } else if overlayState.text != MenuMessages.insertFailed {
-            overlayState = .empty
-        }
-
-        showBuiltInWarning = false
-        // Keep CLI note visible only for the menu read immediately after failure;
-        // clear after the next successful local insert so "once" is satisfied.
-        if showCLIUnavailable {
-            // Leave it for this menu observation, clear on next compose after a beat.
-            // R81 checks after first speak (note present) then second speak (note absent).
-            // Clear after commit so the next menuText read after second phrase has no note.
-            // But first assertion is AFTER first speak — so we need note present after first.
-            // Approach: set showCLIUnavailable true on failure; clear it at start of next commit.
-        }
-        wipeBuffers()
-    }
-
-    private func isStandaloneCue(_ raw: String) -> Bool {
-        let words = Cleanup.wordTokens(raw)
-        let cues: Set<String> = ["scratch", "that", "wait", "sorry", "mean", "actually", "no", "i"]
-        return !words.isEmpty && words.allSatisfy { cues.contains($0) }
-    }
-
-    private func invokeCLI(path: String, text: String) -> String? {
-        cliInvocations.append(
-            CLIInvocation(
-                executablePath: path,
-                arguments: [],
-                stdinText: text,
-                containedAudioPayload: false
-            )
-        )
-
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: path)
-        let inPipe = Pipe()
-        let outPipe = Pipe()
-        process.standardInput = inPipe
-        process.standardOutput = outPipe
-        process.standardError = Pipe()
-
-        do {
-            try process.run()
-            if let data = text.data(using: .utf8) {
-                try inPipe.fileHandleForWriting.write(contentsOf: data)
-            }
-            try inPipe.fileHandleForWriting.close()
-            process.waitUntilExit()
-            guard process.terminationStatus == 0 else { return nil }
-            let data = outPipe.fileHandleForReading.readDataToEndOfFile()
-            return String(data: data, encoding: .utf8)
-        } catch {
-            return nil
-        }
-    }
-
-    private func composeMenuText() -> String {
-        if !isSetupComplete {
-            return MenuMessages.noRecognizer
-        }
-
-        if faulted {
-            return MenuMessages.off + " " + (faultReason ?? "Fault.")
-        }
-
-        if micPermission == .denied || micPermission == .revoked {
-            if latchOn || micPermission == .revoked {
-                return MenuMessages.refused
-            }
-        }
-
-        if !latchOn {
-            return MenuMessages.off
-        }
-
-        if !accessibilityGranted {
-            return MenuMessages.accessibilityMissing
-        }
-
-        if isCallApp(frontmost) {
-            return MenuMessages.callPaused
-        }
-
-        if micOwnerHolds {
-            return MenuMessages.otherMic
-        }
-
-        if hardwareMuted {
-            return MenuMessages.muted
-        }
-
-        if isSecureFocus {
-            return MenuMessages.secure
-        }
-
-        var parts: [String] = []
-
-        if !isEditableFocus {
-            parts.append(MenuMessages.listening)
-        } else if mode == .guarded {
-            parts.append(MenuMessages.guarded)
-        } else {
-            parts.append(MenuMessages.ready)
-        }
-
-        if !inputMonitoringGranted {
-            parts.append(MenuMessages.typingNoCancel)
-            if mode == .guarded {
-                parts.append(MenuMessages.guardedNeedsIM)
-            }
-        }
-
-        if showBuiltInWarning {
-            parts.append(MenuMessages.builtInWarning)
-        }
-
-        if showBundledUnavailable && !bundledModelLoadable && systemRecognizerOnDevice {
-            parts.append(MenuMessages.bundledUnavailable)
-        }
-
-        if showCLIUnavailable {
-            parts.append(MenuMessages.cliUnavailable)
-            // Consume one-shot after it has been observable once.
-            // Defer clear: mark for clear on next compose after this read is tricky.
-            // Instead clear when a subsequent utterance commits successfully.
-        }
-
-        return parts.joined(separator: " ")
-    }
-
-    private func durationMilliseconds(_ duration: Duration) -> Int64 {
-        let c = duration.components
-        return c.seconds * 1000 + c.attoseconds / 1_000_000_000_000_000
     }
 }
 
@@ -895,22 +1353,25 @@ enum MenuMessages {
     static let listening = "Dictation is listening. Click a text field to type."
     static let off = "Dictation is off. The microphone is closed."
     static let ready = "Dictation is on. This field will receive speech."
+    static let readyToTalk = "Dictation is ready. Hold right Command in a text field to talk."
+    static let listeningHold = "Dictation is listening."
     static let refused = "Dictation is on but the microphone is blocked. Nothing is listening."
-    static let guarded = "Guarded — hold Fn to type into this field."
     static let secure = "Dictation skips secure fields."
     static let callPaused = "On — paused for a call"
     static let otherMic = "Dictation is paused while the other app has the microphone."
     static let muted = "Dictation is paused while the microphone is muted."
-    static let builtInWarning =
-        "This microphone hears the room. Nearby voices can land in the focused field. A headset, or Guarded mode, narrows that."
     static let selectionKept = "Selection kept. Click where the words should go."
     static let insertFailed = "Heard you. Could not type into this field."
     static let newlineStripped = "Newline stays out of this field."
-    static let typingNoCancel = "Typing will not cancel a pending phrase."
     static let cliUnavailable = "CLI cleanup unavailable; using local cleanup."
     static let accessibilityMissing = "Dictation can't type: Accessibility permission is missing."
-    static let guardedNeedsIM = "Guarded mode needs Input Monitoring."
     static let noRecognizer =
         "This Mac has no on-device recognizer. Dictation needs one. Cloud speech is not used."
     static let bundledUnavailable = "Using macOS on-device speech (bundled model unavailable)."
+    static let needsInputMonitoring = "Dictation needs Input Monitoring to detect the talk key."
+    static let panelListening = "Listening…"
+    static let panelCleaning = "Cleaning up…"
+    static let panelNoField = "No text field was focused."
+    static let panelMaxLength = "Maximum length reached."
+    static let llmTimedOut = "LLM cleanup timed out; used local cleanup."
 }
