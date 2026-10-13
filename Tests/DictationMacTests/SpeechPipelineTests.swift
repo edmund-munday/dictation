@@ -121,7 +121,7 @@ final class SpeechPipelineTests: XCTestCase {
             throw XCTSkip("whisper-cli or model not installed")
         }
         let h = try MacHarness()
-        let aiff = h.directory.appendingPathComponent("say.aiff")
+        let aiff = h.directory.appendingPathComponent("say.caf")
         let say = Process()
         say.executableURL = URL(fileURLWithPath: "/usr/bin/say")
         say.arguments = ["-o", aiff.path, "--data-format=LEF32@16000", "hello world this is a test"]
