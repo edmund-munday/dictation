@@ -10,7 +10,7 @@ Shorthand: "inserts nothing" = the focused field's value is byte-identical befor
 | ID | Requirement | Src | Test |
 |---|---|---|---|
 | R1 | A menu-bar item is present whenever the app runs. | T Latch | M |
-| R2 | Enabling (menu or Ctrl-Opt-Space) arms the tool; the mic stays closed until the talk key is held; the menu reads "Dictation is ready. Hold right Command in a text field to talk." | D12, CHG | L |
+| R2 | Enabling (menu or Ctrl-Opt-Space) arms the tool; the mic stays closed until the talk key is held; the menu reads "Dictation is ready. Hold left Command in a text field to talk." | D12, CHG, CHG (left Cmd 2026-10-13) | L |
 | R3 | Choosing Off closes the mic, wipes all buffered audio, and the menu reads "Dictation is off. The microphone is closed." | T, B | L, M |
 | R4 | Ctrl-Opt-Space toggles On↔Off from any app. | D12 | M |
 | R5 | The Ctrl-Opt-Space keystroke is never inserted into the focused field. | T | M |
@@ -165,7 +165,7 @@ After the 2026-10-13 change, R61–R78 define the **local rule-based fallback** 
 | R117 | While disabled, Command keeps its normal system function and the panel never appears. | CHG | M |
 | R118 | The raw transcript and the LLM result are never written to disk by the tool. | CHG, B | L (fs watch) |
 | R119 | Releasing the talk key after the latch is disabled mid-hold inserts nothing and closes the mic. | CHG | L |
-| R120 | The talk key is right Command by default; Settings can change it to left Command or either Command key. | CHG (Cmd) | L, M |
+| R120 | The talk key is left Command by default; Settings can change it to right Command or either Command key. | CHG (Cmd), CHG (left Cmd 2026-10-13) | L, M |
 | R121 | Capture starts only when the talk key is held on its own; holding Command together with any other key or modifier already down does not start capture. | CHG (Cmd) | L, M |
 | R122 | If any other key is pressed while the talk key is down, it reaches the app as a normal shortcut, any capture is cancelled, the panel closes, nothing is sent to the LLM and nothing is inserted. | CHG (Cmd) | L, M |
 | R123 | Pressing and releasing the talk key alone never sends a key event or shortcut to the focused app beyond the bare Command press. | CHG (Cmd) | M |
