@@ -2,59 +2,17 @@ import XCTest
 import DictationCore
 
 final class AdmitTests: XCTestCase {
-    func test_R18_speechWithoutFocusInsertsNothingEvenAfterLaterFocus() throws {
+    func test_R18_speechWhileTalkKeyNotHeldInsertsNothing() throws {
         let h = try TestHarness()
         h.latchOn()
-        h.clearFocus()
-        h.speakAndWait("room talk")
-        XCTAssertEqual(h.session.menuText, MenuText.listening)
         h.focusEditable()
-        h.clock.advance(by: .milliseconds(900))
+        h.speakWhileHeld("room talk")
+        h.clock.advance(by: .seconds(2))
 
         XCTAssertTrue(h.session.insertRequests.isEmpty)
-    }
-
-    func test_R19_speechOnsetWithin400msBeforeFocusIsInsertedInFull() throws {
-        let h = try TestHarness()
-        h.latchOn()
-        h.clearFocus()
-
-        let onset = h.clock.now
-        h.clock.advance(by: .milliseconds(200))
-        h.session.ingestRecognizerTokens([
-            RecognizerToken(text: "starting as I click", start: onset, end: h.clock.now),
-        ])
-        h.focusEditable()
-        h.clock.advance(by: .milliseconds(300))
-        h.session.ingestRecognizerTokens([
-            RecognizerToken(text: "starting as I click notes", start: onset, end: h.clock.now),
-        ])
-        h.advanceSilenceAndHold()
-
-        XCTAssertEqual(h.session.insertRequests.count, 1)
-        guard let insert = h.firstInsert() else { return }
-        XCTAssertTrue(insert.text.lowercased().contains("starting"))
-    }
-
-    func test_R20_speechOnsetMoreThan400msBeforeFocusIsDroppedEntirely() throws {
-        let h = try TestHarness()
-        h.latchOn()
-        h.clearFocus()
-
-        let onset = h.clock.now
-        h.clock.advance(by: .milliseconds(500))
-        h.session.ingestRecognizerTokens([
-            RecognizerToken(text: "colleague talking", start: onset, end: h.clock.now),
-        ])
-        h.focusEditable()
-        h.clock.advance(by: .milliseconds(300))
-        h.session.ingestRecognizerTokens([
-            RecognizerToken(text: "colleague talking still", start: onset, end: h.clock.now),
-        ])
-        h.advanceSilenceAndHold()
-
-        XCTAssertTrue(h.session.insertRequests.isEmpty)
-        XCTAssertEqual(h.session.menuText, MenuText.ready)
+        XCTAssertEqual(h.session.micState, .closed)
+        XCTAssertFalse(h.session.panel.isVisible)
+        XCTAssertEqual(h.fakeCLILog(), "")
     }
 
     func test_R21_secureFieldsNeverReceiveTextAndShowMenu() throws {
@@ -184,44 +142,6 @@ final class AdmitTests: XCTestCase {
         h.speakAndWait("quiet headset", isSpeech: true)
         XCTAssertTrue(h.session.insertRequests.isEmpty)
         XCTAssertEqual(h.session.menuText, MenuText.ready)
-    }
-
-    func test_R31_firstBuiltInMicUseShowsRoomWarningOnce() throws {
-        let h = try TestHarness()
-        h.readyListening()
-        h.session.ingestEnergy(
-            EnergySample(
-                timestamp: h.clock.now,
-                energyDb: -20,
-                noiseFloorDb: -40,
-                isBuiltInMic: true
-            )
-        )
-
-        XCTAssertTrue(h.session.menuText.contains(MenuText.builtInWarning))
-
-        h.speakAndWait("hello")
-        h.session.ingestEnergy(
-            EnergySample(
-                timestamp: h.clock.now,
-                energyDb: -20,
-                noiseFloorDb: -40,
-                isBuiltInMic: true
-            )
-        )
-        let occurrences = h.session.menuText.components(separatedBy: MenuText.builtInWarning).count - 1
-        XCTAssertEqual(occurrences, 0, "warning must not repeat after first show")
-    }
-
-    func test_R32_differentSpeakerWithVoiceprintInsertsNothing() throws {
-        let h = try TestHarness()
-        h.session.completeVoiceEnrollment()
-        h.readyListening()
-        h.session.ingestSpeakerScore(SpeakerScore(timestamp: h.clock.now, matchScore: 0.1))
-        h.speakAndWait("someone else")
-
-        XCTAssertTrue(h.session.voiceProfile.speakerFilteringEnabled)
-        XCTAssertTrue(h.session.insertRequests.isEmpty)
     }
 
     func test_R33_lockSleepLidCloseClosesMicWipesAndDropsSpeech() throws {

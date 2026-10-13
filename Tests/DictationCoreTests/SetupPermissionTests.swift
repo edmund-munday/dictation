@@ -12,18 +12,22 @@ final class SetupPermissionTests: XCTestCase {
         XCTAssertTrue(h.session.insertRequests.isEmpty)
     }
 
-    func test_R97_missingInputMonitoringStillWorksWithNotices() throws {
+    func test_R97_missingInputMonitoringCannotDetectTalkKey() throws {
         let h = try TestHarness()
         h.session.setInputMonitoringPermission(false)
-        h.session.setMode(.guarded)
-        h.readyListening()
+        h.latchOn()
+        h.focusEditable()
 
-        XCTAssertTrue(h.session.menuText.contains(MenuText.typingNoCancel))
-        XCTAssertTrue(h.session.menuText.contains(MenuText.guardedNeedsIM))
+        XCTAssertEqual(h.session.menuText, MenuText.needsInputMonitoring)
 
-        h.session.setMode(.flow)
-        h.speakAndWait("still works")
-        XCTAssertEqual(h.session.insertRequests.count, 1)
+        h.pressTalkKey()
+        h.speakWhileHeld("should not capture")
+        h.releaseTalkKey()
+        h.clock.advance(by: .milliseconds(200))
+
+        XCTAssertTrue(h.session.insertRequests.isEmpty)
+        XCTAssertFalse(h.session.panel.isVisible)
+        XCTAssertEqual(h.session.micState, .closed)
     }
 
     func test_R98_noOnDeviceRecognizerStopsSetupAndStaysOff() throws {

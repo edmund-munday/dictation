@@ -2,14 +2,19 @@ import XCTest
 import DictationCore
 
 final class CleanupTests: XCTestCase {
-    func test_R61_shipItFridayActuallyIMeanMonday() throws {
+    func test_R61_localFallbackShipItFridayActuallyIMeanMonday() throws {
         let h = try TestHarness()
-        h.readyListening()
-        h.speakAndWait("ship it friday, actually I mean monday")
+        h.session.setCleanupBackend(.off)
+        h.latchOn()
+        h.focusEditable()
+        h.pressTalkKey()
+        h.speakWhileHeld("ship it friday, actually I mean monday")
+        h.releaseTalkKey()
+        h.clock.advance(by: .milliseconds(200))
 
         XCTAssertEqual(h.session.insertRequests.count, 1)
-        guard let insert = h.firstInsert() else { return }
-        XCTAssertEqual(insert.text, "Ship it Monday.")
+        XCTAssertEqual(h.session.insertRequests.first?.text, "Ship it Monday.")
+        XCTAssertEqual(h.session.cliInvocations.count, 0)
     }
 
     func test_R62_thatsActuallyFineKeepsActually() throws {
@@ -106,20 +111,7 @@ final class CleanupTests: XCTestCase {
         XCTAssertFalse(text.contains("scratch that"))
     }
 
-    func test_R69_scratchThatAloneNeverChangesPreviouslyInsertedText() throws {
-        let h = try TestHarness()
-        h.readyListening()
-        h.speakAndWait("keep this phrase")
-        XCTAssertEqual(h.session.insertRequests.count, 1)
-        guard let first = h.firstInsert()?.text else { return }
-        h.speakAndWait("Scratch that")
-
-        XCTAssertEqual(h.session.insertRequests.count, 1)
-        guard let still = h.firstInsert()?.text else { return }
-        XCTAssertEqual(still, first)
-    }
-
-    func test_R70_cleanupNeverAddsWordNotSpoken_property() throws {
+    func test_R70_localFallbackNeverAddsWordNotSpoken() throws {
         let corpus = [
             "ship it friday, actually I mean monday",
             "that's actually fine",
@@ -132,8 +124,13 @@ final class CleanupTests: XCTestCase {
         ]
         for phrase in corpus {
             let h = try TestHarness()
-            h.readyListening()
-            h.speakAndWait(phrase)
+            h.session.setCleanupBackend(.off)
+            h.latchOn()
+            h.focusEditable()
+            h.pressTalkKey()
+            h.speakWhileHeld(phrase)
+            h.releaseTalkKey()
+            h.clock.advance(by: .milliseconds(200))
             XCTAssertEqual(h.session.insertRequests.count, 1, phrase)
             guard let insert = h.firstInsert() else { return }
             let spokenWords = Set(wordTokens(phrase))
@@ -147,7 +144,7 @@ final class CleanupTests: XCTestCase {
         }
     }
 
-    func test_R71_cleanupNeverRemovesUnlicensedWords_property() throws {
+    func test_R71_localFallbackNeverRemovesUnlicensedWords() throws {
         let corpus = [
             "that's actually fine",
             "I actually think tuesday",
@@ -157,8 +154,13 @@ final class CleanupTests: XCTestCase {
         ]
         for phrase in corpus {
             let h = try TestHarness()
-            h.readyListening()
-            h.speakAndWait(phrase)
+            h.session.setCleanupBackend(.off)
+            h.latchOn()
+            h.focusEditable()
+            h.pressTalkKey()
+            h.speakWhileHeld(phrase)
+            h.releaseTalkKey()
+            h.clock.advance(by: .milliseconds(200))
             XCTAssertEqual(h.session.insertRequests.count, 1, phrase)
             guard let insert = h.firstInsert() else { return }
             let spoken = wordTokens(phrase)
@@ -256,30 +258,37 @@ final class CleanupTests: XCTestCase {
         XCTAssertTrue(second.text.hasPrefix(" "))
     }
 
-    func test_R79_cleanupAppliedAutomaticallyOnEveryInsert() throws {
+    func test_R79_cleanupAppliedAutomaticallyOnRelease() throws {
         let h = try TestHarness()
-        h.readyListening()
-        h.speakAndWait("ship it friday, actually I mean monday")
+        h.session.setCleanupBackend(.off)
+        h.latchOn()
+        h.focusEditable()
+        h.pressTalkKey()
+        h.speakWhileHeld("um hello")
+        h.releaseTalkKey()
+        h.clock.advance(by: .milliseconds(200))
 
         XCTAssertEqual(h.session.insertRequests.count, 1)
-        guard let insert = h.firstInsert() else { return }
-        XCTAssertEqual(insert.text, "Ship it Monday.")
+        XCTAssertEqual(h.session.insertRequests.first?.text, "Hello.")
+        XCTAssertFalse(h.session.panel.isVisible)
     }
 
-    func test_R80_cliResultUsedOnlyIfObeysTokenRulesElseLocal() throws {
+    func test_R80_releaseSendsRawTranscriptOnceAndInsertsLlmResult() throws {
         let h = try TestHarness()
-        let goodCLI = try h.installFakeCLI(result: "Ship it Monday.", delayMs: 0, name: "good-cli")
-        h.session.configureCLI(path: goodCLI.path, kind: .cursorCLI, enabled: true)
-        h.session.confirmCLIConsent()
-        h.readyListening()
-        h.speakAndWait("ship it friday, actually I mean monday")
-        XCTAssertEqual(h.session.insertRequests.last?.text, "Ship it Monday.")
+        let raw = "ship it friday, actually I mean monday"
+        let cli = try h.installFakeCLI(result: "Ship it Monday.", delayMs: 0, name: "llm")
+        h.session.setCleanupBackend(.cursorCLI, executablePath: cli.path)
+        h.latchOn()
+        h.focusEditable()
+        h.pressTalkKey()
+        h.speakWhileHeld(raw)
+        h.releaseTalkKey()
+        h.clock.advance(by: .milliseconds(100))
 
-        let badCLI = try h.installFakeCLI(result: "Ship it Monday please.", delayMs: 0, name: "bad-cli")
-        h.session.configureCLI(path: badCLI.path, kind: .cursorCLI, enabled: true)
-        h.speakAndWait("ship it friday, actually I mean monday")
-        let last = try XCTUnwrap(h.session.insertRequests.last?.text)
-        XCTAssertFalse(last.lowercased().contains("please"))
+        XCTAssertEqual(h.session.cliInvocations.count, 1)
+        XCTAssertEqual(h.session.cliInvocations.first?.stdinText, raw)
+        XCTAssertEqual(h.fakeCLILog(name: "llm").contains(raw), true)
+        XCTAssertEqual(h.session.insertRequests.first?.text, "Ship it Monday.")
     }
 
     func test_R81_cliMissingFailingOrSlowFallsBackWithMenuNoteOnce() throws {

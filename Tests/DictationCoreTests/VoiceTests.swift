@@ -2,18 +2,27 @@ import XCTest
 import DictationCore
 
 final class VoiceTests: XCTestCase {
-    func test_R83_enrollmentCompletingEnablesSpeakerFiltering() throws {
+    func test_R83_enrollmentEnablesVoiceAdaptationAndIncrementsVersion() throws {
         let h = try TestHarness()
         XCTAssertTrue(h.session.voiceProfile.enrollmentAvailable)
+        XCTAssertEqual(h.session.voiceProfile.version, 0)
         h.session.completeVoiceEnrollment()
 
         XCTAssertTrue(h.session.voiceProfile.isEnrolled)
-        XCTAssertTrue(h.session.voiceProfile.speakerFilteringEnabled)
+        XCTAssertEqual(h.session.voiceProfile.version, 1)
 
-        h.readyListening()
-        h.session.ingestSpeakerScore(SpeakerScore(timestamp: h.clock.now, matchScore: 0.05))
-        h.speakAndWait("intruder")
-        XCTAssertTrue(h.session.insertRequests.isEmpty)
+        h.session.setCleanupBackend(.off)
+        h.latchOn()
+        h.focusEditable()
+        h.pressTalkKey()
+        h.speakWhileHeld("hello from me")
+        h.releaseTalkKey()
+        h.clock.advance(by: .milliseconds(200))
+        XCTAssertEqual(h.session.insertRequests.count, 1)
+        h.session.reportInsertionSucceeded(for: 0)
+
+        XCTAssertGreaterThan(h.session.voiceProfile.version, 1)
+        XCTAssertEqual(h.session.voiceProfile.acceptedUtteranceCount, 1)
     }
 
     func test_R84_enrollmentCanBeSkippedAndToolStillWorks() throws {

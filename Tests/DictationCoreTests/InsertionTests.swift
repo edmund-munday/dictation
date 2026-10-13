@@ -105,14 +105,30 @@ final class InsertionTests: XCTestCase {
         XCTAssertEqual(h.session.insertRequests.count, 1)
     }
 
-    func test_R49_overlayOnlyWhenNeededNotOnEveryPhrase() throws {
+    func test_R49_panelOnlyWhileHeldDuringCleanupOrOnFailure() throws {
         let h = try TestHarness()
-        h.readyListening()
-        h.speakAndWait("ordinary phrase")
-        h.session.reportInsertionSucceeded(for: 0)
+        h.session.setCleanupBackend(.off)
+        h.latchOn()
+        h.focusEditable()
 
+        XCTAssertFalse(h.session.panel.isVisible)
+
+        h.pressTalkKey()
+        XCTAssertTrue(h.session.panel.isVisible)
+        XCTAssertEqual(h.session.panel.text, MenuText.panelListening)
+
+        h.speakWhileHeld("ordinary phrase")
+        h.releaseTalkKey()
+        XCTAssertEqual(h.session.panel.text, MenuText.panelCleaning)
+
+        h.clock.advance(by: .milliseconds(200))
         XCTAssertEqual(h.session.insertRequests.count, 1)
-        XCTAssertEqual(h.session.overlay, .empty)
+        XCTAssertFalse(h.session.panel.isVisible)
+
+        h.session.reportInsertionFailed(for: 0)
+        XCTAssertTrue(h.session.panel.isVisible)
+        XCTAssertEqual(h.session.panel.text, MenuText.insertFailed)
+        XCTAssertEqual(h.session.panel.buttons.map(\.title), ["Copy"])
     }
 
     func test_R50_newlineStrippedShowsOverlayMessage() throws {

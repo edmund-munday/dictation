@@ -2,13 +2,14 @@ import XCTest
 import DictationCore
 
 final class LatchMenuTests: XCTestCase {
-    func test_R2_choosingOnOpensMicAndShowsListeningMenuWithoutFocus() throws {
+    func test_R2_enablingArmsToolMicStaysClosedUntilTalkKey() throws {
         let h = try TestHarness()
         h.clearFocus()
         h.latchOn()
 
-        XCTAssertEqual(h.session.micState, .open)
-        XCTAssertEqual(h.session.menuText, MenuText.listening)
+        XCTAssertTrue(h.session.isLatchOn)
+        XCTAssertEqual(h.session.micState, .closed)
+        XCTAssertEqual(h.session.menuText, MenuText.readyToTalk)
     }
 
     func test_R3_choosingOffClosesMicWipesBufferAndShowsOffMenu() throws {
@@ -49,11 +50,13 @@ final class LatchMenuTests: XCTestCase {
         XCTAssertTrue(h.session.insertRequests.isEmpty)
     }
 
-    func test_R9_focusedEditableFieldShowsReadyMenu() throws {
+    func test_R9_talkKeyHeldOverEditableFieldShowsListeningMenu() throws {
         let h = try TestHarness()
-        h.readyListening()
+        h.latchOn()
+        h.focusEditable()
+        h.pressTalkKey()
 
-        XCTAssertEqual(h.session.menuText, MenuText.ready)
+        XCTAssertEqual(h.session.menuText, MenuText.listeningHold)
     }
 
     func test_R10_micPermissionDeniedShowsRefusedAndInsertsNothing() throws {

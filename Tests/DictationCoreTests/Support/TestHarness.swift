@@ -24,6 +24,14 @@ enum MenuText {
     static let noRecognizer =
         "This Mac has no on-device recognizer. Dictation needs one. Cloud speech is not used."
     static let bundledUnavailable = "Using macOS on-device speech (bundled model unavailable)."
+    static let readyToTalk = "Dictation is ready. Hold right Command in a text field to talk."
+    static let listeningHold = "Dictation is listening."
+    static let needsInputMonitoring = "Dictation needs Input Monitoring to detect the talk key."
+    static let panelListening = "Listening…"
+    static let panelCleaning = "Cleaning up…"
+    static let panelNoField = "No text field was focused."
+    static let panelMaxLength = "Maximum length reached."
+    static let llmTimedOut = "LLM cleanup timed out; used local cleanup."
 }
 
 final class TestHarness {
@@ -150,6 +158,60 @@ final class TestHarness {
         clock.advance(by: .milliseconds(400 + 500))
     }
 
+    func pressTalkKey(
+        side: CommandSide = .right,
+        otherKeysAlreadyDown: [KeyIdentity] = []
+    ) {
+        session.ingestTalkKey(
+            TalkKeyEvent(
+                timestamp: clock.now,
+                identity: .command(side),
+                isDown: true,
+                otherKeysAlreadyDown: otherKeysAlreadyDown
+            )
+        )
+    }
+
+    func releaseTalkKey(side: CommandSide = .right) {
+        session.ingestTalkKey(
+            TalkKeyEvent(
+                timestamp: clock.now,
+                identity: .command(side),
+                isDown: false
+            )
+        )
+    }
+
+    func pressOtherKey(_ identity: KeyIdentity) {
+        session.ingestTalkKey(
+            TalkKeyEvent(
+                timestamp: clock.now,
+                identity: identity,
+                isDown: true
+            )
+        )
+    }
+
+    /// Tokens delivered while a hold is expected to be active. Does not advance the endpoint timer.
+    func speakWhileHeld(
+        _ text: String,
+        speechDuration: Duration = .milliseconds(500),
+        isFinal: Bool = true,
+        isSpeech: Bool = true
+    ) {
+        let start = clock.now
+        clock.advance(by: speechDuration)
+        session.ingestRecognizerTokens([
+            RecognizerToken(
+                text: text,
+                start: start,
+                end: clock.now,
+                isSpeech: isSpeech,
+                isFinal: isFinal
+            ),
+        ])
+    }
+
     func frontmostNotes() {
         session.ingestFrontmostApp(
             FrontmostApp(timestamp: clock.now, bundleID: "com.apple.Notes", callKind: .none)
@@ -161,7 +223,8 @@ final class TestHarness {
     func installFakeCLI(
         result: String,
         delayMs: Int = 0,
-        name: String = "fake-cli"
+        name: String = "fake-cli",
+        exitCode: Int = 0
     ) throws -> URL {
         let scriptURL = workingDirectory.appendingPathComponent(name)
         let logURL = workingDirectory.appendingPathComponent("\(name).log")
@@ -176,6 +239,7 @@ final class TestHarness {
           sleep $(awk "BEGIN { print \(delayMs)/1000 }")
         fi
         printf '%s' '\(result.replacingOccurrences(of: "'", with: "'\\''"))'
+        exit \(exitCode)
         """
         try script.write(to: scriptURL, atomically: true, encoding: .utf8)
         try FileManager.default.setAttributes(

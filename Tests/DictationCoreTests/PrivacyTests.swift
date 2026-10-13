@@ -48,40 +48,6 @@ final class PrivacyTests: XCTestCase {
         }
     }
 
-    func test_R91_consentPromptBeforeFirstCLIUse() throws {
-        let h = try TestHarness()
-        let cli = try h.installFakeCLI(result: "Hi.", delayMs: 0)
-        h.session.configureCLI(path: cli.path, kind: .cursorCLI, enabled: true)
-        h.readyListening()
-        h.speakOnly("hi")
-
-        let prompt = try XCTUnwrap(h.session.consentPrompt?.message)
-        XCTAssertEqual(
-            prompt,
-            "Sending the transcript to Cursor CLI leaves this Mac. Audio stays here."
-        )
-        h.advanceSilenceAndHold()
-        XCTAssertTrue(h.session.cliInvocations.isEmpty)
-
-        h.session.confirmCLIConsent()
-        h.speakAndWait("hi again")
-        XCTAssertFalse(h.session.cliInvocations.isEmpty)
-    }
-
-    func test_R91_consentPromptForClaudeCLI() throws {
-        let h = try TestHarness()
-        let cli = try h.installFakeCLI(result: "Hi.", delayMs: 0)
-        h.session.configureCLI(path: cli.path, kind: .claudeCLI, enabled: true)
-        h.readyListening()
-        h.speakOnly("hi")
-
-        let prompt = try XCTUnwrap(h.session.consentPrompt?.message)
-        XCTAssertEqual(
-            prompt,
-            "Sending the transcript to Claude CLI leaves this Mac. Audio stays here."
-        )
-    }
-
     func test_R92_cliBackendOffStartsNoProcess() throws {
         let h = try TestHarness()
         let cli = try h.installFakeCLI(result: "Nope.", delayMs: 0)
