@@ -1,0 +1,21 @@
+question: How should an always-on, fully local macOS voice dictation tool that replaces the keyboard in any text field work, including its hardest nuances?
+job:
+  shape: spec
+  include:
+    - separating dictation from speech not meant for the field, such as calls, people nearby, self-talk
+    - detecting a focused text field and inserting text on macOS
+    - streaming speech recognition versus cleanup latency budget
+    - cleaning self-corrections like actually I mean xyz without changing meaning
+    - local models for Apple Silicon MacBook versus a locked-down work laptop, with Cursor CLI or Claude CLI as backends
+    - the on and off toggle
+    - failure modes and privacy
+    - open decisions needing the user
+bounds:
+  assume:
+    - The tool listens constantly whenever toggled on, far beyond typing moments.
+    - Low latency is a major requirement.
+    - No cloud speech or language services; only local models or Cursor CLI or Claude CLI.
+    - English is assumed but unconfirmed.
+    - Mouse and keyboard remain available.
+  forbid:
+    - inventing requirements the user never stated without flagging them as proposals
