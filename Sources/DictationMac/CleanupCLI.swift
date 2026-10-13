@@ -14,13 +14,15 @@ public enum CleanupPrompt {
 public struct CLICandidate: Sendable, Equatable {
     public var name: String
     public var backend: CleanupBackend
-    /// Arguments before the combined prompt+transcript argument.
+    /// Arguments before the combined prompt+transcript argument (fast models; cursor-agent
+    /// needs --trust because the wrapper directory is not a trusted workspace).
     public var leadingArguments: [String]
 
-    public static let grok = CLICandidate(name: "grok", backend: .grokCLI, leadingArguments: ["-p"])
-    public static let claude = CLICandidate(name: "claude", backend: .claudeCLI, leadingArguments: ["-p"])
+    public static let grok = CLICandidate(name: "grok", backend: .grokCLI,
+        leadingArguments: ["-m", "grok-4.7-build-fast", "--reasoning-effort", "low", "-p"])
+    public static let claude = CLICandidate(name: "claude", backend: .claudeCLI, leadingArguments: ["--model", "haiku", "-p"])
     public static let cursorAgent = CLICandidate(
-        name: "cursor-agent", backend: .cursorCLI, leadingArguments: ["-p", "--output-format", "text"])
+        name: "cursor-agent", backend: .cursorCLI, leadingArguments: ["-p", "--trust", "--output-format", "text"])
     public static let all: [CLICandidate] = [.grok, .claude, .cursorAgent]
 }
 
