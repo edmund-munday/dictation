@@ -5,6 +5,14 @@ import Foundation
 public protocol Clock: Sendable {
     var now: Duration { get }
     func observeAdvances(_ handler: @escaping @Sendable () -> Void)
+    /// When true, `now` moves with wall time, so a later timer tick can
+    /// observe a cleanup process. A manual clock only moves inside
+    /// `observeAdvances`, and that callback has to see the process exit.
+    var observesWallTime: Bool { get }
+}
+
+extension Clock {
+    public var observesWallTime: Bool { false }
 }
 
 /// Wall-clock time. Deadlines are rechecked on a short repeating timer.
@@ -19,6 +27,8 @@ public final class SystemClock: Clock, @unchecked Sendable {
     public var now: Duration {
         origin.duration(to: .now)
     }
+
+    public var observesWallTime: Bool { true }
 
     public func observeAdvances(_ handler: @escaping @Sendable () -> Void) {
         lock.lock()

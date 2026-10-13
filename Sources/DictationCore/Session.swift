@@ -103,11 +103,18 @@ public final class Session: @unchecked Sendable {
         var finished = false
         var output: String?
         var ignored = false
+        var terminationStatus: Int32 = 1
+        /// Signalled once, after the process exits, whether or not the result is used.
+        let exited = DispatchSemaphore(value: 0)
+        var didSignalExit = false
 
         init(generation: Int) {
             self.generation = generation
         }
     }
+
+    /// Serialises cleanup-process fields touched from the termination callback.
+    private let llmStateLock = NSLock()
 
     public init(clock: any Clock, paths: SessionPaths) {
         self.clock = clock
@@ -690,7 +697,8 @@ public final class Session: @unchecked Sendable {
             case .pending:
                 deferred = nil
                 llmJob?.ignored = false
-                // Due 4 seconds after release, or sooner if the process exits.
+                // Due 4 seconds after release. An earlier process exit is applied
+                // from evaluateTimers; an answer after `due` stays ignored.
                 deferred = DeferredCommit(
                     due: releaseAt + .seconds(4),
                     generation: generation,
@@ -746,6 +754,9 @@ public final class Session: @unchecked Sendable {
         job.process = process
         job.stdout = outPipe
         llmJob = job
+        process.terminationHandler = { [weak self] exited in
+            self?.captureLLMExit(exited)
+        }
         do {
             try process.run()
             if let data = raw.data(using: .utf8) {
@@ -757,22 +768,76 @@ public final class Session: @unchecked Sendable {
             return .unavailable
         }
 
-        let deadline = Date().addingTimeInterval(0.25)
-        while process.isRunning && Date() < deadline {
-            Thread.sleep(forTimeInterval: 0.01)
+        // A fast exit is collected here. A process that is still starting
+        // (macOS first-exec scan) stays pending: the caller is not held for
+        // the 4 s budget, and evaluateTimers applies the result if the
+        // process exits before that deadline.
+        if job.exited.wait(timeout: .now()) == .success {
+            return outcome(for: job, raw: raw)
         }
-        if process.isRunning {
-            return .pending
-        }
-        job.finished = true
-        let data = outPipe.fileHandleForReading.readDataToEndOfFile()
+        return .pending
+    }
+
+    /// Records stdout and status when the cleanup process exits.
+    /// Does not insert. Insertion stays on the session thread.
+    private func captureLLMExit(_ process: Process) {
+        llmStateLock.lock()
+        let job = llmJob
+        let pipe = job?.stdout
+        let matches = job?.process === process && job?.finished == false
+        llmStateLock.unlock()
+        guard matches, let job else { return }
+
+        let data = pipe?.fileHandleForReading.readDataToEndOfFile() ?? Data()
         let output = String(data: data, encoding: .utf8) ?? ""
-        job.output = output
-        guard process.terminationStatus == 0 else { return .unavailable }
-        if let accepted = acceptLLMResult(raw: raw, result: output) {
+        let status = process.terminationStatus
+
+        var shouldSignal = false
+        llmStateLock.lock()
+        if llmJob === job, !job.didSignalExit {
+            if !job.ignored && !job.finished {
+                job.output = output
+                job.terminationStatus = status
+                job.finished = true
+            }
+            job.didSignalExit = true
+            shouldSignal = true
+        }
+        llmStateLock.unlock()
+        if shouldSignal {
+            job.exited.signal()
+        }
+    }
+
+    private func outcome(for job: LLMJob, raw: String) -> LLMOutcome {
+        guard job.terminationStatus == 0 else { return .unavailable }
+        if let accepted = acceptLLMResult(raw: raw, result: job.output ?? "") {
             return .accepted(accepted)
         }
         return .rejected
+    }
+
+    /// Manual clocks do not move while a process is still spawning, so the
+    /// advance that is still inside the 4 s budget has to wait until exit.
+    /// Once `due` has been reached this returns immediately and the late
+    /// answer stays ignored. The wait ends when the process exits; it does
+    /// not park the caller for the whole budget when the process is slow
+    /// and the deadline has already passed.
+    private func awaitManualClockLLM() {
+        guard !clock.observesWallTime else { return }
+        guard let job = llmJob, !job.ignored, !job.finished else { return }
+        guard let deferred, deferred.generation == job.generation, deferred.text == nil else { return }
+        guard clock.now < deferred.due else { return }
+        let deadline = Date().addingTimeInterval(3.9)
+        while !job.finished && Date() < deadline {
+            if job.exited.wait(timeout: .now() + .milliseconds(50)) == .success {
+                break
+            }
+            if let process = job.process, !process.isRunning {
+                captureLLMExit(process)
+                break
+            }
+        }
     }
 
     private func acceptLLMResult(raw: String, result: String) -> String? {
@@ -994,10 +1059,9 @@ public final class Session: @unchecked Sendable {
             finishUtterance(hold: snapshot, releaseAt: snapshot.startedAt + .seconds(120), maxLength: true)
         }
 
-        if let job = llmJob, !job.ignored, !job.finished, let process = job.process, !process.isRunning {
-            job.finished = true
-            let data = job.stdout?.fileHandleForReading.readDataToEndOfFile() ?? Data()
-            job.output = String(data: data, encoding: .utf8) ?? ""
+        awaitManualClockLLM()
+
+        if let job = llmJob, !job.ignored, job.finished {
             if let deferred, deferred.generation == job.generation, deferred.text == nil {
                 applyLLMJobToDeferred(job)
             }
@@ -1054,7 +1118,7 @@ public final class Session: @unchecked Sendable {
     private func applyLLMJobToDeferred(_ job: LLMJob) {
         guard var pendingCommit = deferred, pendingCommit.generation == job.generation else { return }
         let output = job.output ?? ""
-        let statusOK = job.process?.terminationStatus == 0
+        let statusOK = job.terminationStatus == 0
         let focusShot = storedFocus(for: pendingCommit)
         if statusOK, let accepted = acceptLLMResult(raw: pendingCommit.raw, result: output) {
             let resolved = resolveOutput(raw: pendingCommit.raw, cleaned: accepted, focus: focusShot)
@@ -1080,6 +1144,7 @@ public final class Session: @unchecked Sendable {
             pendingCommit.panel = resolved.panel
             pendingCommit.overlay = resolved.overlay
             pendingCommit.insert = resolved.insert
+            pendingCommit.due = min(pendingCommit.due, clock.now)
         }
         deferred = pendingCommit
     }
