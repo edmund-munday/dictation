@@ -112,10 +112,8 @@ public final class Session: @unchecked Sendable {
     public init(clock: any Clock, paths: SessionPaths) {
         self.clock = clock
         self.paths = paths
-        if let fake = clock as? FakeClock {
-            fake.onAdvance = { [weak self] in
-                self?.evaluateTimers()
-            }
+        clock.observeAdvances { [weak self] in
+            self?.evaluateTimers()
         }
     }
 
