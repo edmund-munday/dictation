@@ -60,6 +60,7 @@ public final class Session: @unchecked Sendable {
     private var capture: HoldCapture?
     private var deferred: DeferredCommit?
     private var llmJob: LLMJob?
+    private static let llmSynchronousGrace: TimeInterval = 2.5
     private var commitGeneration = 0
 
     private struct PendingUtterance {
@@ -757,9 +758,12 @@ public final class Session: @unchecked Sendable {
             return .unavailable
         }
 
-        let deadline = Date().addingTimeInterval(0.25)
+        // A cold process start (shell, interpreter, CLI auth) routinely takes longer than a
+        // few hundred milliseconds on macOS. Wait a bounded real-time grace so a quick result
+        // is picked up synchronously; anything slower is collected by evaluateTimers or times out.
+        let deadline = Date().addingTimeInterval(Self.llmSynchronousGrace)
         while process.isRunning && Date() < deadline {
-            Thread.sleep(forTimeInterval: 0.01)
+            Thread.sleep(forTimeInterval: 0.005)
         }
         if process.isRunning {
             return .pending
