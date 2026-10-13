@@ -24,7 +24,7 @@ enum MenuText {
     static let noRecognizer =
         "This Mac has no on-device recognizer. Dictation needs one. Cloud speech is not used."
     static let bundledUnavailable = "Using macOS on-device speech (bundled model unavailable)."
-    static let readyToTalk = "Dictation is ready. Hold right Command in a text field to talk."
+    static let readyToTalk = "Dictation is ready. Hold left Command in a text field to talk."
     static let listeningHold = "Dictation is listening."
     static let needsInputMonitoring = "Dictation needs Input Monitoring to detect the talk key."
     static let panelListening = "Listening…"
@@ -159,7 +159,7 @@ final class TestHarness {
     }
 
     func pressTalkKey(
-        side: CommandSide = .right,
+        side: CommandSide = .left,
         otherKeysAlreadyDown: [KeyIdentity] = []
     ) {
         session.ingestTalkKey(
@@ -172,7 +172,7 @@ final class TestHarness {
         )
     }
 
-    func releaseTalkKey(side: CommandSide = .right) {
+    func releaseTalkKey(side: CommandSide = .left) {
         session.ingestTalkKey(
             TalkKeyEvent(
                 timestamp: clock.now,

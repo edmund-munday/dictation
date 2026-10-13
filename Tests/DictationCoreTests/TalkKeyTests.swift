@@ -2,33 +2,36 @@ import XCTest
 import DictationCore
 
 final class TalkKeyTests: XCTestCase {
-    func test_R120_talkKeyDefaultsToRightCommandAndCanChange() throws {
+    func test_R120_talkKeyDefaultsToLeftCommandAndCanChange() throws {
         let h = try TestHarness()
         h.session.setCleanupBackend(.off)
-        XCTAssertEqual(h.session.settings.talkKey, .rightCommand)
+        XCTAssertEqual(h.session.settings.talkKey, .leftCommand)
 
         h.latchOn()
         h.focusEditable()
-        h.pressTalkKey(side: .left)
-        XCTAssertFalse(h.session.panel.isVisible)
-        h.releaseTalkKey(side: .left)
-
-        h.session.setTalkKey(.leftCommand)
-        XCTAssertEqual(h.session.settings.talkKey, .leftCommand)
         h.pressTalkKey(side: .right)
         XCTAssertFalse(h.session.panel.isVisible)
         h.releaseTalkKey(side: .right)
 
+        h.session.setTalkKey(.rightCommand)
+        XCTAssertEqual(h.session.settings.talkKey, .rightCommand)
         h.pressTalkKey(side: .left)
+        XCTAssertFalse(h.session.panel.isVisible)
+        h.releaseTalkKey(side: .left)
+
+        h.pressTalkKey(side: .right)
         XCTAssertEqual(h.session.panel.text, MenuText.panelListening)
         h.speakWhileHeld("left command")
-        h.releaseTalkKey(side: .left)
+        h.releaseTalkKey(side: .right)
         h.clock.advance(by: .milliseconds(200))
         XCTAssertEqual(h.session.insertRequests.count, 1)
 
         h.session.setTalkKey(.eitherCommand)
         XCTAssertEqual(h.session.settings.talkKey, .eitherCommand)
         h.pressTalkKey(side: .right)
+        XCTAssertEqual(h.session.panel.text, MenuText.panelListening)
+        h.releaseTalkKey(side: .right)
+        h.pressTalkKey(side: .left)
         XCTAssertEqual(h.session.panel.text, MenuText.panelListening)
     }
 
