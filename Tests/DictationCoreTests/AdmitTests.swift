@@ -7,10 +7,10 @@ final class AdmitTests: XCTestCase {
         h.latchOn()
         h.clearFocus()
         h.speakAndWait("room talk")
+        XCTAssertEqual(h.session.menuText, MenuText.listening)
         h.focusEditable()
         h.clock.advance(by: .milliseconds(900))
 
-        XCTAssertEqual(h.session.menuText, MenuText.listening)
         XCTAssertTrue(h.session.insertRequests.isEmpty)
     }
 
