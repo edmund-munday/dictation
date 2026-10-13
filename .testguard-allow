@@ -1,0 +1,2 @@
+# SwiftPM test target lives in capitalised Tests/, which testguard does not classify as a test dir (case-sensitive), so test doubles there trip fake-in-src. Only the test target is exempted; Sources/ stays guarded.
+Tests/*
