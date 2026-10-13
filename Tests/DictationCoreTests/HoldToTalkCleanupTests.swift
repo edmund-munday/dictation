@@ -20,6 +20,7 @@ final class HoldToTalkCleanupTests: XCTestCase {
         h.clock.advance(by: .milliseconds(100))
 
         XCTAssertEqual(h.session.cliInvocations.count, 2)
+        guard h.session.cliInvocations.count >= 2 else { return }
         XCTAssertEqual(h.session.cliInvocations[0].stdinText, "first utterance")
         XCTAssertEqual(h.session.cliInvocations[1].stdinText, "second utterance")
         XCTAssertFalse(h.session.cliInvocations[1].stdinText.contains("first utterance"))
