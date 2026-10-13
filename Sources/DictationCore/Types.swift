@@ -329,7 +329,7 @@ public struct Settings: Sendable, Equatable {
         cliBackendPath: String? = nil,
         cliBackendKind: CLIBackendKind? = nil,
         cleanupBackend: CleanupBackend = .off,
-        talkKey: TalkKeyChoice = .rightCommand
+        talkKey: TalkKeyChoice = .leftCommand
     ) {
         self.mode = mode
         self.cliBackendEnabled = cliBackendEnabled

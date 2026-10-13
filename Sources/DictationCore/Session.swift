@@ -52,7 +52,7 @@ public final class Session: @unchecked Sendable {
     private var cliPath: String?
     private var cliKind: CLIBackendKind?
 
-    private var talkKeyChoice: TalkKeyChoice = .rightCommand
+    private var talkKeyChoice: TalkKeyChoice = .leftCommand
     private var cleanupBackend: CleanupBackend = .off
     private var cleanupExecutablePath: String?
 
@@ -1351,7 +1351,7 @@ enum MenuMessages {
     static let listening = "Dictation is listening. Click a text field to type."
     static let off = "Dictation is off. The microphone is closed."
     static let ready = "Dictation is on. This field will receive speech."
-    static let readyToTalk = "Dictation is ready. Hold right Command in a text field to talk."
+    static let readyToTalk = "Dictation is ready. Hold left Command in a text field to talk."
     static let listeningHold = "Dictation is listening."
     static let refused = "Dictation is on but the microphone is blocked. Nothing is listening."
     static let secure = "Dictation skips secure fields."

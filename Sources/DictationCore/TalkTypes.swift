@@ -7,7 +7,7 @@ public enum CommandSide: Sendable, Equatable {
     case right
 }
 
-/// Which Command key starts a hold. Right Command is the product default.
+/// Which Command key starts a hold. Left Command is the product default.
 public enum TalkKeyChoice: Sendable, Equatable {
     case rightCommand
     case leftCommand
