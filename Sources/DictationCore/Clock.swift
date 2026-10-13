@@ -1,8 +1,7 @@
 import Foundation
 
 /// Injectable clock. `now` is the current time. `observeAdvances` registers
-/// work that runs when time moves: a fake clock calls it from `advance(by:)`,
-/// and a system clock calls it from its own timer.
+/// work that runs when time moves. `SystemClock` calls it from its own timer.
 public protocol Clock: Sendable {
     var now: Duration { get }
     func observeAdvances(_ handler: @escaping @Sendable () -> Void)
@@ -45,25 +44,5 @@ public final class SystemClock: Clock, @unchecked Sendable {
 
     deinit {
         timer?.cancel()
-    }
-}
-
-/// Test double: time advances only when `advance(by:)` is called.
-public final class FakeClock: Clock, @unchecked Sendable {
-    public private(set) var now: Duration
-    /// Invoked after each advance so a session can evaluate timers.
-    public var onAdvance: (() -> Void)?
-
-    public init(now: Duration = .zero) {
-        self.now = now
-    }
-
-    public func advance(by duration: Duration) {
-        now += duration
-        onAdvance?()
-    }
-
-    public func observeAdvances(_ handler: @escaping @Sendable () -> Void) {
-        onAdvance = handler
     }
 }

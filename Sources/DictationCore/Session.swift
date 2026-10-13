@@ -690,7 +690,7 @@ public final class Session: @unchecked Sendable {
             case .pending:
                 deferred = nil
                 llmJob?.ignored = false
-                // Resolved on the fake clock at 4s, or sooner if the process exits.
+                // Due 4 seconds after release, or sooner if the process exits.
                 deferred = DeferredCommit(
                     due: releaseAt + .seconds(4),
                     generation: generation,
