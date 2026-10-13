@@ -355,6 +355,22 @@ public final class Session: @unchecked Sendable {
         }
     }
 
+    /// Scaffold only. Does not change latch, mic, or insert behaviour.
+    public func ingestTalkKey(_ event: TalkKeyEvent) {
+        _ = event
+    }
+
+    /// Scaffold only. The reported cleanup backend stays `.off`.
+    public func setCleanupBackend(_ backend: CleanupBackend, executablePath: String? = nil) {
+        _ = backend
+        _ = executablePath
+    }
+
+    /// Scaffold only. The reported talk key stays `.rightCommand`.
+    public func setTalkKey(_ choice: TalkKeyChoice) {
+        _ = choice
+    }
+
     public func confirmCLIConsent() {
         cliConsented = true
         consentPromptMessage = nil
@@ -426,6 +442,9 @@ public final class Session: @unchecked Sendable {
 
     public var overlay: OverlayState { overlayState }
 
+    /// Scaffold only. The panel stays hidden until hold-to-talk is implemented.
+    public var panel: PanelState { .hidden }
+
     public var bufferStatus: BufferStatus {
         BufferStatus(
             preRollMilliseconds: bufferWiped ? 0 : preRollMs,
@@ -441,7 +460,9 @@ public final class Session: @unchecked Sendable {
             mode: mode,
             cliBackendEnabled: cliEnabled,
             cliBackendPath: cliPath,
-            cliBackendKind: cliKind
+            cliBackendKind: cliKind,
+            cleanupBackend: .off,
+            talkKey: .rightCommand
         )
     }
 

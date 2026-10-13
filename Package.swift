@@ -3,6 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "DictationCore",
+    platforms: [.macOS(.v13)],
     products: [
         .library(name: "DictationCore", targets: ["DictationCore"]),
     ],

@@ -110,6 +110,8 @@ public struct FocusSnapshot: Sendable, Equatable {
     public var selectionContainsLineBreak: Bool
     public var precedingCharacter: Character?
     public var identity: FocusIdentity
+    /// False when the focused element has gone away (R107). Ignored until hold-to-talk is implemented.
+    public var exists: Bool
 
     public init(
         timestamp: Duration,
@@ -118,7 +120,8 @@ public struct FocusSnapshot: Sendable, Equatable {
         selectionLength: Int = 0,
         selectionContainsLineBreak: Bool = false,
         precedingCharacter: Character? = nil,
-        identity: FocusIdentity
+        identity: FocusIdentity,
+        exists: Bool = true
     ) {
         self.timestamp = timestamp
         self.role = role
@@ -127,6 +130,7 @@ public struct FocusSnapshot: Sendable, Equatable {
         self.selectionContainsLineBreak = selectionContainsLineBreak
         self.precedingCharacter = precedingCharacter
         self.identity = identity
+        self.exists = exists
     }
 }
 
@@ -316,17 +320,23 @@ public struct Settings: Sendable, Equatable {
     public var cliBackendEnabled: Bool
     public var cliBackendPath: String?
     public var cliBackendKind: CLIBackendKind?
+    public var cleanupBackend: CleanupBackend
+    public var talkKey: TalkKeyChoice
 
     public init(
         mode: DictationMode = .flow,
         cliBackendEnabled: Bool = false,
         cliBackendPath: String? = nil,
-        cliBackendKind: CLIBackendKind? = nil
+        cliBackendKind: CLIBackendKind? = nil,
+        cleanupBackend: CleanupBackend = .off,
+        talkKey: TalkKeyChoice = .rightCommand
     ) {
         self.mode = mode
         self.cliBackendEnabled = cliBackendEnabled
         self.cliBackendPath = cliBackendPath
         self.cliBackendKind = cliBackendKind
+        self.cleanupBackend = cleanupBackend
+        self.talkKey = talkKey
     }
 }
 
