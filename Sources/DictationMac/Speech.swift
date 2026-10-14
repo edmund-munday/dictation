@@ -84,10 +84,24 @@ public final class WhisperTranscriber: SpeechTranscriber {
         self.scratchDirectory = scratchDirectory
     }
 
+    /// Model choice: `defaults write com.edmundmunday.dictation.hand whisperModel <file or path>`,
+    /// else small.en (q5_1, ~+0.35 s over base on an M-series Air, more accurate), else base.en.
     public static func defaultModel() -> URL {
-        FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Application Support/Dictation/models/ggml-base.en.bin")
+        let dir = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Application Support/Dictation/models")
+        if let configured = UserDefaults.standard.string(forKey: "whisperModel"), !configured.isEmpty {
+            return configured.hasPrefix("/") ? URL(fileURLWithPath: configured)
+                : dir.appendingPathComponent(configured)
+        }
+        let preferred = dir.appendingPathComponent("ggml-small.en-q5_1.bin")
+        if FileManager.default.fileExists(atPath: preferred.path) { return preferred }
+        return dir.appendingPathComponent("ggml-base.en.bin")
     }
+
+    /// Vocabulary hint passed as whisper's initial prompt; override with the `whisperPrompt` default
+    /// (empty string disables it).
+    public var initialPrompt: String = UserDefaults.standard.string(forKey: "whisperPrompt")
+        ?? "Edmund dictating notes and messages: note, notes, gateway, Grok, Claude, Codex, MacBook, Origin, worker, dictation."
 
     public static let defaultExecutables: [URL] = [
         URL(fileURLWithPath: "/opt/homebrew/bin/whisper-cli"),
@@ -130,7 +144,8 @@ public final class WhisperTranscriber: SpeechTranscriber {
         let threads = max(2, min(8, ProcessInfo.processInfo.activeProcessorCount))
         let result = ProcessRunner.run(
             executable: executable,
-            arguments: ["-m", model.path, "-f", chunk.path, "-nt", "-np", "-l", "en", "-t", String(threads)],
+            arguments: ["-m", model.path, "-f", chunk.path, "-nt", "-np", "-l", "en", "-t", String(threads)]
+                + (initialPrompt.isEmpty ? [] : ["--prompt", initialPrompt]),
             stdin: nil,
             timeout: timeout
         )
