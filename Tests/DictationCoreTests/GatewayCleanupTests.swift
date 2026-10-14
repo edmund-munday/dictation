@@ -476,6 +476,17 @@ final class GatewayCleanupTests: XCTestCase {
         XCTAssertEqual(body.temperature, 0)
     }
 
+    func test_R213_promptRequiresMinimalCleanupAndIncludesSelfCorrectionExample() {
+        let prompt = DictationCore.CleanupPrompt.text.lowercased()
+        for phrase in [
+            "minimal", "stutter", "never soften", "rephrase", "hedge",
+            "push the release to thursday actually i mean friday",
+            "Push the release to Friday.",
+        ] {
+            XCTAssertTrue(prompt.contains(phrase.lowercased()), "Missing prompt content: \(phrase)")
+        }
+    }
+
     private func localCleanupOutput(for raw: String) throws -> String {
         // Obtain the local cleanup through Session, just as a user selecting it would.
         let h = try TestHarness()
