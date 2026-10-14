@@ -87,6 +87,17 @@ final class PluginRunnerTests: XCTestCase {
         XCTAssertEqual(try String(contentsOf: dir.appendingPathComponent("echo.json"), encoding: .utf8), PluginCommandTestsFixture.edited)
     }
 
+    func test_R237_bundledPluginsHaveZeroConfirmDelay() throws {
+        try BundledPlugins.install(into: dir)
+        let loaded = PluginLoader.load(directory: dir)
+        XCTAssertTrue(loaded.errors.isEmpty)
+        XCTAssertEqual(Set(loaded.plugins.map(\.name)), ["echo", "screenshot"])
+        let echo = try XCTUnwrap(loaded.plugins.first { $0.name == "echo" })
+        let screenshot = try XCTUnwrap(loaded.plugins.first { $0.name == "screenshot" })
+        XCTAssertEqual(echo.confirmDelaySeconds, 0)
+        XCTAssertEqual(screenshot.confirmDelaySeconds, 0)
+    }
+
     func test_R234_setEnabledRewritesOnlyThatFile() throws {
         try BundledPlugins.install(into: dir)
         try PluginLoader.setEnabled(false, plugin: "echo", directory: dir)

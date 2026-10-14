@@ -1,8 +1,11 @@
 import DictationCore
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 import XCTest
 
-/// R229-R233: voice-command plugins v1 (no wake word; single gateway call routes; local phrase fallback).
+/// R229-R233, R236-R237: voice-command routing, local fast path, and cancel windows.
 final class PluginCommandTests: XCTestCase {
     static let screenshotJSON = """
     {"name":"screenshot","description":"Take a screenshot of the screen and copy it to the clipboard.",
@@ -90,7 +93,7 @@ final class PluginCommandTests: XCTestCase {
     // R232 session routing
     func test_R232_commandIsNotTypedAndRunsAfterCancelWindow() throws {
         let h = try harness(gatewayReply: commandReply())
-        release(h, "take a screenshot of the error dialog")
+        release(h, "capture the error dialog for me")
         h.clock.advance(by: .milliseconds(250))
         XCTAssertTrue(h.session.insertRequests.isEmpty)
         XCTAssertTrue(h.session.commandRequests.isEmpty)
@@ -106,7 +109,7 @@ final class PluginCommandTests: XCTestCase {
 
     func test_R232_anyKeyInCancelWindowCancels() throws {
         let h = try harness(gatewayReply: commandReply())
-        release(h, "take a screenshot of the error dialog")
+        release(h, "capture the error dialog for me")
         h.clock.advance(by: .milliseconds(250))
         h.pressOtherKey(.character("x"))
         h.clock.advance(by: .milliseconds(2000))
@@ -149,7 +152,7 @@ final class PluginCommandTests: XCTestCase {
         h.latchOn()
         h.clearFocus()
         h.pressTalkKey()
-        h.speakWhileHeld("take a screenshot of the error dialog")
+        h.speakWhileHeld("capture the error dialog for me")
         h.releaseTalkKey()
         h.clock.advance(by: .milliseconds(2000))
         XCTAssertEqual(h.session.commandRequests.count, 1)
@@ -185,7 +188,273 @@ final class PluginCommandTests: XCTestCase {
         XCTAssertFalse(r.autoSendAllowed)
     }
 
+    // R236 local fast path. A contradictory gateway reply makes accidental routing observable.
+    func test_R236_normalizedExactTriggersBypassGatewayAndNeverType() throws {
+        let p = try plugin(Self.screenshotJSON, overriding: ["confirm_delay_s": 0])
+        for transcript in ["TAKE A SCREENSHOT!", "Um, take a screenshot.", "Uh, take a screenshot!",
+                           "So, take a screenshot.", "Okay, take a screenshot.",
+                           "Um, uh, so, okay, take a screenshot."] {
+            let stub = Stub(text: "This would be typed by the gateway.")
+            let h = try harness(transport: stub, plugins: [p])
+            release(h, transcript)
+            XCTAssertTrue(stub.requests.isEmpty, transcript)
+            XCTAssertEqual(h.session.commandRequests.count, 1, transcript)
+            XCTAssertEqual(h.session.commandRequests.first?.plugin.name, "screenshot", transcript)
+            XCTAssertEqual(h.session.commandRequests.first?.args, [:], transcript)
+            h.clock.advance(by: .seconds(4))
+            XCTAssertTrue(stub.requests.isEmpty, transcript)
+            XCTAssertEqual(h.session.commandRequests.count, 1, "Must run exactly once: \(transcript)")
+            XCTAssertTrue(h.session.insertRequests.isEmpty, transcript)
+            XCTAssertTrue(h.session.emittedKeyEvents.isEmpty, transcript)
+        }
+    }
+
+    func test_R236_prefixTriggerExtractsArgumentWithoutGateway() throws {
+        let p = try plugin(Self.screenshotJSON, overriding: ["confirm_delay_s": 0])
+        for subject in ["the error dialog", "okay so the error dialog"] {
+            let stub = Stub(text: "Gateway dictation.")
+            let h = try harness(transport: stub, plugins: [p])
+            release(h, "Um, take a screenshot of \(subject).")
+            XCTAssertTrue(stub.requests.isEmpty)
+            XCTAssertEqual(h.session.commandRequests.count, 1)
+            XCTAssertEqual(h.session.commandRequests.first?.plugin.name, "screenshot")
+            XCTAssertEqual(h.session.commandRequests.first?.args, ["subject": subject])
+            XCTAssertTrue(h.session.insertRequests.isEmpty)
+            XCTAssertTrue(h.session.emittedKeyEvents.isEmpty)
+        }
+    }
+
+    func test_R236_nonmatchingOrMissingRequiredArgumentUsesGatewayDictation() throws {
+        let requiredEvenForExact = try plugin(Self.echoJSON, overriding: ["triggers": ["test echo", "test echo {text}"]])
+        for transcript in ["I need to take a screenshot later", "take a screenshot later",
+                           "take a screenshot of", "test echo", "test echo !!!"] {
+            let stub = Stub(text: "Gateway dictation.")
+            let h = try harness(transport: stub, plugins: [try plugins()[0], requiredEvenForExact])
+            release(h, transcript)
+            XCTAssertEqual(stub.requests.count, 1, transcript)
+            h.clock.advance(by: .seconds(4))
+            XCTAssertEqual(h.session.insertRequests.map(\.text), ["Gateway dictation."], transcript)
+            XCTAssertTrue(h.session.commandRequests.isEmpty, transcript)
+        }
+    }
+
+    func test_R236_equalSpecificityAcrossPluginsUsesGatewayRegardlessOfOrder() throws {
+        let first = try plugin(Self.echoJSON, overriding: ["name": "first", "confirm_delay_s": 0])
+        let second = try plugin(Self.echoJSON, overriding: ["name": "second", "confirm_delay_s": 0])
+        let exactFirst = try plugin(Self.screenshotJSON, overriding: ["name": "first", "confirm_delay_s": 0])
+        let exactSecond = try plugin(Self.screenshotJSON, overriding: ["name": "second", "confirm_delay_s": 0])
+        for (transcript, candidates) in [("test echo hello", [first, second]),
+                                        ("take a screenshot", [exactFirst, exactSecond])] {
+            for ordered in [candidates, Array(candidates.reversed())] {
+                let stub = Stub(text: "Ambiguous command becomes dictation.")
+                let h = try harness(transport: stub, plugins: ordered)
+                release(h, transcript)
+                XCTAssertEqual(stub.requests.count, 1, transcript)
+                h.clock.advance(by: .seconds(4))
+                XCTAssertTrue(h.session.commandRequests.isEmpty, transcript)
+                XCTAssertEqual(h.session.insertRequests.map(\.text), ["Ambiguous command becomes dictation."], transcript)
+            }
+        }
+    }
+
+    func test_R236_moreSpecificTemplateWinsRegardlessOfPluginOrder() throws {
+        let broad = try plugin(Self.echoJSON, overriding: ["triggers": ["take {text}"], "confirm_delay_s": 0])
+        let specific = try plugin(Self.screenshotJSON, overriding: ["confirm_delay_s": 0])
+        for ordered in [[broad, specific], [specific, broad]] {
+            let stub = Stub(text: "Gateway dictation.")
+            let h = try harness(transport: stub, plugins: ordered)
+            release(h, "take a screenshot of the error dialog")
+            XCTAssertTrue(stub.requests.isEmpty)
+            XCTAssertEqual(h.session.commandRequests.count, 1)
+            XCTAssertEqual(h.session.commandRequests.first?.plugin.name, "screenshot")
+            XCTAssertEqual(h.session.commandRequests.first?.args, ["subject": "the error dialog"])
+            XCTAssertTrue(h.session.insertRequests.isEmpty)
+        }
+    }
+
+    func test_R236_duplicateTemplatesWithinOnePluginAreNotAmbiguous() throws {
+        let p = try plugin(Self.echoJSON, overriding: ["triggers": ["test echo {text}", "test echo {text}"],
+                                                     "confirm_delay_s": 0])
+        let stub = Stub(text: "Gateway dictation.")
+        let h = try harness(transport: stub, plugins: [p])
+        release(h, "test echo hello")
+        XCTAssertTrue(stub.requests.isEmpty)
+        XCTAssertEqual(h.session.commandRequests.count, 1)
+        XCTAssertEqual(h.session.commandRequests.first?.args, ["text": "hello"])
+        XCTAssertTrue(h.session.insertRequests.isEmpty)
+    }
+
+    func test_R236_disabledPluginCannotMatchOrCauseAmbiguity() throws {
+        let enabled = try plugin(Self.screenshotJSON, overriding: ["confirm_delay_s": 0])
+        let disabled = try plugin(Self.screenshotJSON, overriding: ["name": "disabled", "enabled": false,
+                                                                  "confirm_delay_s": 0])
+        let stub = Stub(text: "Gateway dictation.")
+        let h = try harness(transport: stub, plugins: [disabled, enabled])
+        release(h, "take a screenshot")
+        XCTAssertTrue(stub.requests.isEmpty)
+        XCTAssertEqual(h.session.commandRequests.count, 1)
+        XCTAssertEqual(h.session.commandRequests.first?.plugin.name, "screenshot")
+        XCTAssertTrue(h.session.insertRequests.isEmpty)
+
+        // An enabled but unrelated plugin must not make a disabled trigger eligible.
+        let unrelated = try plugin(Self.echoJSON, overriding: ["confirm_delay_s": 0])
+        for candidates in [[disabled, unrelated], [disabled], []] {
+            let fallbackStub = Stub(text: "Gateway dictation.")
+            let fallback = try harness(transport: fallbackStub, plugins: candidates)
+            release(fallback, "take a screenshot")
+            XCTAssertEqual(fallbackStub.requests.count, 1)
+            fallback.clock.advance(by: .seconds(4))
+            XCTAssertTrue(fallback.session.commandRequests.isEmpty)
+            XCTAssertEqual(fallback.session.insertRequests.map(\.text), ["Gateway dictation."])
+        }
+    }
+
+    func test_R236_secureFieldNeverRunsOrTypesMatchingCommand() throws {
+        let stub = Stub(text: commandReply())
+        let p = try plugin(Self.screenshotJSON, overriding: ["confirm_delay_s": 0])
+        let h = try harness(transport: stub, plugins: [p])
+        h.latchOn()
+        h.focusEditable(role: .secureTextField, secure: true)
+        h.pressTalkKey()
+        h.speakWhileHeld("Um, take a screenshot.")
+        h.releaseTalkKey()
+        h.clock.advance(by: .seconds(12))
+        XCTAssertTrue(h.session.commandRequests.isEmpty)
+        XCTAssertTrue(h.session.insertRequests.isEmpty)
+        XCTAssertTrue(h.session.emittedKeyEvents.isEmpty)
+    }
+
+    func test_R236_fastCommandRunsWithoutFocusedField() throws {
+        let stub = Stub(text: "Gateway dictation.")
+        let p = try plugin(Self.screenshotJSON, overriding: ["confirm_delay_s": 0])
+        let h = try harness(transport: stub, plugins: [p])
+        h.latchOn()
+        h.clearFocus()
+        h.pressTalkKey()
+        h.speakWhileHeld("take a screenshot")
+        h.releaseTalkKey()
+        XCTAssertTrue(stub.requests.isEmpty)
+        XCTAssertEqual(h.session.commandRequests.count, 1)
+        XCTAssertEqual(h.session.commandRequests.first?.plugin.name, "screenshot")
+        XCTAssertTrue(h.session.insertRequests.isEmpty)
+    }
+
+    func test_R236_focusBecomesSecureBeforeReleasePreventsCommandAndTyping() throws {
+        let stub = Stub(text: commandReply())
+        let p = try plugin(Self.screenshotJSON, overriding: ["confirm_delay_s": 0])
+        let h = try harness(transport: stub, plugins: [p])
+        h.readyListening()
+        h.pressTalkKey()
+        h.speakWhileHeld("take a screenshot")
+        h.focusEditable(role: .secureTextField, secure: true)
+        h.releaseTalkKey()
+        h.clock.advance(by: .seconds(12))
+        XCTAssertTrue(h.session.commandRequests.isEmpty)
+        XCTAssertTrue(h.session.insertRequests.isEmpty)
+        XCTAssertTrue(h.session.emittedKeyEvents.isEmpty)
+    }
+
+    // R237 delays are checked from release, without advancing the clock for zero.
+    func test_R237_omittedDelayWaitsExactlyOneAndAHalfSeconds() throws {
+        let stub = Stub(text: "Gateway dictation.")
+        let h = try harness(transport: stub, plugins: [try plugins()[0]])
+        release(h, "take a screenshot")
+        XCTAssertTrue(stub.requests.isEmpty)
+        XCTAssertEqual(h.session.panel.text, "Running: screenshot")
+        XCTAssertTrue(h.session.commandRequests.isEmpty)
+        h.clock.advance(by: .milliseconds(1499))
+        XCTAssertTrue(h.session.commandRequests.isEmpty)
+        h.clock.advance(by: .milliseconds(1))
+        XCTAssertEqual(h.session.commandRequests.count, 1)
+        XCTAssertEqual(h.session.commandRequests.first?.plugin.name, "screenshot")
+        XCTAssertTrue(h.session.insertRequests.isEmpty)
+    }
+
+    func test_R237_delayBelongsToTheMatchedPlugin() throws {
+        let screenshot = try plugin(Self.screenshotJSON, overriding: ["confirm_delay_s": 0])
+        let echo = try plugin(Self.echoJSON, overriding: ["confirm_delay_s": 0.5])
+        for (transcript, name, delayMS) in [("take a screenshot", "screenshot", 0),
+                                           ("test echo hello", "echo", 500)] {
+            let stub = Stub(text: "Gateway dictation.")
+            let h = try harness(transport: stub, plugins: [screenshot, echo])
+            release(h, transcript)
+            XCTAssertTrue(stub.requests.isEmpty)
+            XCTAssertEqual(h.session.panel.text, "Running: \(name)")
+            if delayMS > 0 {
+                XCTAssertTrue(h.session.commandRequests.isEmpty)
+                h.clock.advance(by: .milliseconds(delayMS - 1))
+                XCTAssertTrue(h.session.commandRequests.isEmpty)
+                h.clock.advance(by: .milliseconds(1))
+            }
+            XCTAssertEqual(h.session.commandRequests.count, 1)
+            XCTAssertEqual(h.session.commandRequests.first?.plugin.name, name)
+            h.clock.advance(by: .seconds(12))
+            XCTAssertEqual(h.session.commandRequests.count, 1)
+            XCTAssertTrue(h.session.insertRequests.isEmpty)
+        }
+    }
+
+    func test_R237_anyKeyJustBeforeDelayExpiresCancelsPermanently() throws {
+        let p = try plugin(Self.screenshotJSON, overriding: ["confirm_delay_s": 0.5])
+        for key: KeyIdentity in [.character("x"), .escape, .shortcut("copy"), .modifier("shift"), .command(.right)] {
+            let stub = Stub(text: "Gateway dictation.")
+            let h = try harness(transport: stub, plugins: [p])
+            release(h, "take a screenshot")
+            XCTAssertTrue(stub.requests.isEmpty)
+            XCTAssertEqual(h.session.panel.text, "Running: screenshot")
+            h.clock.advance(by: .milliseconds(499))
+            XCTAssertTrue(h.session.commandRequests.isEmpty)
+            h.pressOtherKey(key)
+            h.clock.advance(by: .seconds(12))
+            XCTAssertEqual(h.session.panel.text, "Cancelled: screenshot")
+            XCTAssertTrue(h.session.commandRequests.isEmpty)
+            XCTAssertTrue(h.session.insertRequests.isEmpty)
+        }
+    }
+
+    func test_R237_delayIsClampedToZeroThroughTenSeconds() throws {
+        for (delay, expectedMS) in [(-0.5, 0), (10.0, 10000), (25.0, 10000)] {
+            let p = try plugin(Self.screenshotJSON, overriding: ["confirm_delay_s": delay])
+            let stub = Stub(text: "Gateway dictation.")
+            let h = try harness(transport: stub, plugins: [p])
+            release(h, "take a screenshot")
+            XCTAssertTrue(stub.requests.isEmpty)
+            if expectedMS > 0 {
+                XCTAssertEqual(h.session.panel.text, "Running: screenshot")
+                XCTAssertTrue(h.session.commandRequests.isEmpty)
+                h.clock.advance(by: .milliseconds(expectedMS - 1))
+                XCTAssertTrue(h.session.commandRequests.isEmpty)
+                h.clock.advance(by: .milliseconds(1))
+            }
+            XCTAssertEqual(h.session.commandRequests.count, 1, "confirm_delay_s: \(delay)")
+            XCTAssertEqual(h.session.commandRequests.first?.plugin.name, "screenshot")
+            XCTAssertTrue(h.session.insertRequests.isEmpty)
+        }
+    }
+
+    func test_R237_gatewayRoutedCommandAlsoUsesPluginDelay() throws {
+        let stub = Stub(text: commandReply())
+        let p = try plugin(Self.screenshotJSON, overriding: ["confirm_delay_s": 0.5])
+        let h = try harness(transport: stub, plugins: [p])
+        release(h, "capture the error dialog for me")
+        XCTAssertEqual(stub.requests.count, 1)
+        h.clock.advance(by: .milliseconds(250))
+        XCTAssertEqual(h.session.panel.text, "Running: screenshot")
+        XCTAssertTrue(h.session.commandRequests.isEmpty)
+        h.clock.advance(by: .milliseconds(499))
+        XCTAssertTrue(h.session.commandRequests.isEmpty)
+        h.clock.advance(by: .milliseconds(1))
+        XCTAssertEqual(h.session.commandRequests.count, 1)
+        XCTAssertEqual(h.session.commandRequests.first?.args, ["subject": "the error dialog"])
+        XCTAssertTrue(h.session.insertRequests.isEmpty)
+    }
+
     // MARK: helpers
+    private func plugin(_ source: String, overriding fields: [String: Any]) throws -> PluginSpec {
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(source.utf8)) as? [String: Any])
+        object.merge(fields) { _, new in new }
+        return try PluginSpec.parse(JSONSerialization.data(withJSONObject: object))
+    }
     private func json(_ o: [String: Any]) throws -> String {
         String(data: try JSONSerialization.data(withJSONObject: o), encoding: .utf8)!
     }
@@ -195,10 +464,13 @@ final class PluginCommandTests: XCTestCase {
     }
     private func config() -> GatewayConfig { GatewayConfig(url: URL(string: "https://gateway.invalid")!, key: "test-only-key") }
     private func harness(gatewayReply: String?) throws -> TestHarness {
+        try harness(transport: Stub(text: gatewayReply), plugins: plugins())
+    }
+    private func harness(transport: Stub, plugins: [PluginSpec]) throws -> TestHarness {
         let h = try TestHarness()
-        h.session.setGatewayCleaner(GatewayCleaner(config: config(), transport: Stub(text: gatewayReply)))
+        h.session.setGatewayCleaner(GatewayCleaner(config: config(), transport: transport))
         h.session.setCleanupBackend(.gateway)
-        h.session.setPlugins(try plugins())
+        h.session.setPlugins(plugins)
         return h
     }
     private func release(_ h: TestHarness, _ raw: String) {
