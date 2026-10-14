@@ -20,6 +20,10 @@ final class AppModel: ObservableObject {
     @Published var permissions = PermissionReport(granted: [], needsSpeechRecognition: false)
     @Published var tapRunning = false
     @Published var panel = PanelState.hidden
+    @Published var pluginList: [PluginSpec] = []
+    @Published var pluginErrors: [String: String] = [:]
+    private var commandsHandled = 0
+    private let pluginQueue = DispatchQueue(label: "dictation.plugins", qos: .userInitiated)
 
     private let work = DispatchQueue(label: "dictation.session")
     private let clock: QueueClock
@@ -79,6 +83,10 @@ final class AppModel: ObservableObject {
             applyPermissions(report)
             toggle.setEnabled(true)
         }
+        try? FileManager.default.createDirectory(at: PluginLoader.defaultDirectory, withIntermediateDirectories: true,
+                                                 attributes: [.posixPermissions: 0o700])
+        try? BundledPlugins.install(into: PluginLoader.defaultDirectory)
+        reloadPlugins()
         pipeline.beforeHold = { [weak self] in self?.refreshCallState() }
         pipeline.onChange = { [weak self] in self?.afterSessionChange() }
         clock.observeAdvances { [weak self] in self?.afterSessionChange() }
@@ -113,6 +121,60 @@ final class AppModel: ObservableObject {
     }
 
     // MARK: Actions
+
+    func reloadPlugins() {
+        let result = PluginLoader.load(directory: PluginLoader.defaultDirectory)
+        work.async { self.session.setPlugins(result.plugins) }
+        DispatchQueue.main.async {
+            self.pluginList = result.plugins
+            self.pluginErrors = result.errors
+        }
+    }
+
+    func setPlugin(_ name: String, enabled: Bool) {
+        try? PluginLoader.setEnabled(enabled, plugin: name, directory: PluginLoader.defaultDirectory)
+        reloadPlugins()
+    }
+
+    func openPluginsFolder() {
+        NSWorkspace.shared.activateFileViewerSelecting([PluginLoader.defaultDirectory])
+    }
+
+    /// On `work`: run commands that passed the cancel window (R232/R234), off the session queue.
+    private func runPendingCommands() {
+        let requests = session.commandRequests
+        while commandsHandled < requests.count {
+            let index = commandsHandled
+            let request = requests[index]
+            commandsHandled += 1
+            var context: [String: String] = [
+                "transcript": request.transcript,
+                "timestamp": ISO8601DateFormatter().string(from: Date()),
+            ]
+            if let pid = request.target?.pid,
+               let bundle = NSRunningApplication(processIdentifier: pid_t(pid))?.bundleIdentifier {
+                context["frontmost_app"] = bundle
+            } else if let bundle = NSWorkspace.shared.frontmostApplication?.bundleIdentifier {
+                context["frontmost_app"] = bundle
+            }
+            context["display_id"] = String(CGMainDisplayID())
+            pluginQueue.async { [weak self] in
+                let result = PluginRunner.run(request.plugin, args: request.args, context: context)
+                NSLog("Dictation plugin %@ exit %d", request.plugin.name, result.exitCode)
+                guard let self else { return }
+                self.work.async {
+                    if result.exitCode == 0 {
+                        self.session.ingestPluginResult(for: index, output: result.output ?? PluginOutput(insert: nil, notify: nil, send: nil))
+                    } else if result.exitCode == 2 {
+                        self.session.ingestPluginResult(for: index, output: PluginOutput(insert: request.transcript, notify: nil, send: false))
+                    } else {
+                        self.session.ingestPluginFailure(for: index, message: result.errorLine ?? "exit \(result.exitCode)")
+                    }
+                    self.afterSessionChange()
+                }
+            }
+        }
+    }
 
     func setSaveDictations(_ on: Bool) {
         saveDictations = on
@@ -232,6 +294,7 @@ final class AppModel: ObservableObject {
     private func afterSessionChange() {
         insertion.poll()
         corpus.poll(session: session, coordinator: insertion)
+        runPendingCommands()
         updatePartialTimer()
         publish()
     }

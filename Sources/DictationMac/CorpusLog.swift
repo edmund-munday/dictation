@@ -39,6 +39,8 @@ public final class CorpusLogger {
                 "autoSent": outcome?.autoSent ?? false,
                 "noSend": !r.cancelled && !r.autoSendAllowed,
                 "cancelled": r.cancelled,
+                "mode": r.mode,
+                "plugin": r.plugin ?? NSNull(),
             ]
             guard let data = try? JSONSerialization.data(withJSONObject: obj, options: [.sortedKeys, .withoutEscapingSlashes]),
                   let line = String(data: data, encoding: .utf8) else { continue }

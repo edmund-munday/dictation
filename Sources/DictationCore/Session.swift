@@ -60,6 +60,10 @@ public final class Session: @unchecked Sendable {
     public private(set) var utteranceRecords: [UtteranceRecord] = []
     private var releaseTimes: [Int: Duration] = [:]
     private var insertCountBeforeApply = 0
+    private var plugins: [PluginSpec] = []
+    private var pendingCommand: (request: CommandRequest, due: Duration)?
+    /// R232: commands that passed the cancel window; the Mac layer runs them.
+    public private(set) var commandRequests: [CommandRequest] = []
     private var releaseFocuses: [Int: FocusSnapshot] = [:]
     private var gatewayJob: GatewayJob?
 
@@ -103,6 +107,8 @@ public final class Session: @unchecked Sendable {
         var insert: Bool
         var maxLengthNote: Bool
         var allowSend = true
+        var command: CommandMatch?
+        var routed = false
     }
 
     private final class LLMJob {
@@ -424,6 +430,11 @@ public final class Session: @unchecked Sendable {
 
     public func ingestTalkKey(_ event: TalkKeyEvent) {
         guard inputMonitoringGranted else { return }
+        if event.isDown, let pending = pendingCommand {
+            pendingCommand = nil
+            panelState = PanelState(isVisible: true, text: "Cancelled: \(pending.request.plugin.name)")
+            if case .command = event.identity {} else { return }
+        }
         switch event.identity {
         case .command(let side):
             if event.isDown {
@@ -441,6 +452,30 @@ public final class Session: @unchecked Sendable {
     public func setCleanupBackend(_ backend: CleanupBackend, executablePath: String? = nil) {
         cleanupBackend = backend
         cleanupExecutablePath = executablePath
+    }
+
+    public func setPlugins(_ specs: [PluginSpec]) {
+        plugins = specs
+    }
+
+    /// R233: result of a plugin run (index into `commandRequests`).
+    public func ingestPluginResult(for index: Int, output: PluginOutput) {
+        guard commandRequests.indices.contains(index) else { return }
+        let request = commandRequests[index]
+        if let text = output.insert, !text.isEmpty, let target = request.target {
+            insertRequests.append(InsertRequest(text: text, target: target, replacesSelection: false,
+                                                autoSendAllowed: output.send ?? false))
+        }
+        if let note = output.notify, !note.isEmpty {
+            panelState = PanelState(isVisible: true, text: note)
+        } else {
+            panelState = .hidden
+        }
+    }
+
+    public func ingestPluginFailure(for index: Int, message: String) {
+        guard commandRequests.indices.contains(index) else { return }
+        panelState = PanelState(isVisible: true, text: "\(commandRequests[index].plugin.name) failed: \(message)")
     }
 
     public func setGatewayCleaner(_ cleaner: GatewayCleaner?) {
@@ -713,7 +748,7 @@ public final class Session: @unchecked Sendable {
                 isVisible: true,
                 text: maxLength ? MenuMessages.panelMaxLength : MenuMessages.panelCleaning
             )
-            gatewayCleaner.clean(raw) { [job] text in
+            gatewayCleaner.clean(raw, plugins: plugins) { [job] text in
                 job.complete(text)
             }
             // A transport may finish synchronously. Pick that up before returning;
@@ -1099,6 +1134,11 @@ public final class Session: @unchecked Sendable {
             finishUtterance(hold: snapshot, releaseAt: snapshot.startedAt + .seconds(120), maxLength: true)
         }
 
+        if let pending = pendingCommand, clock.now >= pending.due {
+            pendingCommand = nil
+            commandRequests.append(pending.request)
+        }
+
         if let job = gatewayJob, let pendingCommit = deferred,
            pendingCommit.generation == job.generation, pendingCommit.text == nil {
             if clock.now >= pendingCommit.due {
@@ -1174,8 +1214,21 @@ public final class Session: @unchecked Sendable {
         return releaseFocus
     }
 
-    private func applyGatewayResultToDeferred(_ output: String?) {
+    private func applyGatewayResultToDeferred(_ reply: String?) {
         guard var pendingCommit = deferred else { return }
+        var output = reply
+        if let reply, !plugins.isEmpty {
+            pendingCommit.routed = true
+            switch CommandRouter.parse(reply, plugins: plugins) {
+            case .command(let match):
+                pendingCommit.command = match
+                pendingCommit.due = min(pendingCommit.due, clock.now)
+                deferred = pendingCommit
+                return
+            case .dictation(let text):
+                output = text
+            }
+        }
         let cleaned = output.flatMap { acceptLLMResult(raw: pendingCommit.raw, result: $0) }
             ?? Cleanup.clean(pendingCommit.raw)
         let resolved = resolveOutput(raw: pendingCommit.raw, cleaned: cleaned,
@@ -1247,7 +1300,7 @@ public final class Session: @unchecked Sendable {
         if let focus, Self.isSecure(focus) { return }
         let raw = job.raw
         guard !raw.isEmpty else { return }
-        let cleaned = job.text ?? ""
+        let cleaned = job.command == nil ? (job.text ?? "") : ""
         var backend = "local"
         switch cleanupBackend {
         case .gateway, .cursorCLI, .claudeCLI, .grokCLI:
@@ -1264,10 +1317,29 @@ public final class Session: @unchecked Sendable {
         utteranceRecords.append(UtteranceRecord(
             timestamp: Date(), raw: raw, tokenized: SpokenMarkup.tokenize(raw), cleaned: cleaned,
             backend: backend, latencyMs: ms, fieldRole: focus?.role ?? .none, target: job.target,
-            insertIndex: insertIndex, autoSendAllowed: job.allowSend, cancelled: false))
+            insertIndex: insertIndex, autoSendAllowed: job.command == nil && job.allowSend, cancelled: false,
+            mode: job.command == nil ? "dictation" : "command", plugin: job.command?.plugin))
     }
 
-    private func apply(_ job: DeferredCommit) {
+    private func apply(_ original: DeferredCommit) {
+        var job = original
+        let focusNow = releaseFocuses[job.generation] ?? releaseFocus
+        let secure = focusNow.map(Self.isSecure) ?? false
+        if secure {
+            job.command = nil
+        } else if job.command == nil, !job.routed, !plugins.isEmpty {
+            job.command = TriggerMatcher.match(job.raw, plugins: plugins)
+        }
+        if let match = job.command, let plugin = plugins.first(where: { $0.name == match.plugin }) {
+            recordUtterance(job, insertIndex: nil)
+            pendingCommand = (CommandRequest(plugin: plugin, args: match.args, transcript: job.raw,
+                                             target: focusNow?.identity ?? job.target),
+                              clock.now + .milliseconds(1500))
+            overlayState = .empty
+            panelState = PanelState(isVisible: true, text: "Running: \(plugin.name)")
+            return
+        }
+        job.command = nil
         insertCountBeforeApply = insertRequests.count
         defer {
             let idx = insertRequests.count > insertCountBeforeApply ? insertRequests.count - 1 : nil

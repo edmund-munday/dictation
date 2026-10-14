@@ -94,7 +94,7 @@ public final class GatewayCleaner {
         self.transport = transport
     }
 
-    public func clean(_ raw: String, completion: @escaping (String?) -> Void) {
+    public func clean(_ raw: String, plugins: [PluginSpec] = [], completion: @escaping (String?) -> Void) {
         guard config.isValid else {
             completion(nil)
             return
@@ -108,7 +108,7 @@ public final class GatewayCleaner {
             "model": config.model,
             "temperature": 0,
             "messages": [
-                ["role": "system", "content": CleanupPrompt.text],
+                ["role": "system", "content": CleanupPrompt.text + (CommandRouter.promptSection(for: plugins) ?? "")],
                 ["role": "user", "content": SpokenMarkup.tokenize(raw)],
             ],
             "max_output_tokens": 600,

@@ -34,6 +34,18 @@ struct MenuContent: View {
         Toggle("Save dictations for tuning", isOn: Binding(get: { model.saveDictations },
                                                            set: { model.setSaveDictations($0) }))
         Button("Reveal dictation log folder") { model.revealCorpusFolder() }
+        Menu("Plugins") {
+            ForEach(model.pluginList, id: \.name) { plugin in
+                Toggle(plugin.name, isOn: Binding(get: { plugin.enabled },
+                                                  set: { model.setPlugin(plugin.name, enabled: $0) }))
+            }
+            ForEach(model.pluginErrors.keys.sorted(), id: \.self) { file in
+                Text("⚠︎ \(file): \(model.pluginErrors[file] ?? "")")
+            }
+            Divider()
+            Button("Reload plugins") { model.reloadPlugins() }
+            Button("Open plugins folder") { model.openPluginsFolder() }
+        }
         Divider()
         Text("Permissions: " + model.permissions.summary)
         ForEach(model.permissions.missing, id: \.self) { kind in

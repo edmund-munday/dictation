@@ -393,4 +393,6 @@ public struct UtteranceRecord: Sendable, Equatable {
     public var insertIndex: Int?
     public var autoSendAllowed: Bool
     public var cancelled: Bool
+    public var mode: String = "dictation"
+    public var plugin: String?
 }
