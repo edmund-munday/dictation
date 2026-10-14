@@ -45,6 +45,22 @@ final class GatewayCleanupTests: XCTestCase {
         }
     }
 
+    func test_G2b_R209_requestMaxOutputTokensIsAnIntegerWithinServerLimit() throws {
+        let transport = StubGatewayHTTPTransport(response: response(text: "Hello there."))
+        let cleaner = GatewayCleaner(config: config(), transport: transport)
+        let done = expectation(description: "cleaner completes")
+        cleaner.clean("um hello there") { _ in done.fulfill() }
+        wait(for: [done], timeout: 1)
+
+        let request = try XCTUnwrap(transport.requests.first)
+        struct RequestBody: Decodable {
+            let max_output_tokens: Int
+        }
+        let body = try JSONDecoder().decode(RequestBody.self, from: XCTUnwrap(request.httpBody))
+        XCTAssertGreaterThanOrEqual(body.max_output_tokens, 1)
+        XCTAssertLessThanOrEqual(body.max_output_tokens, 1_000)
+    }
+
     func test_G2_sessionSendsOneRawTranscriptPerRelease() throws {
         let h = try TestHarness()
         let transport = StubGatewayHTTPTransport(response: response(text: "Cleaned text."))
