@@ -94,7 +94,7 @@ final class PluginCommandTests: XCTestCase {
         h.clock.advance(by: .milliseconds(250))
         XCTAssertTrue(h.session.insertRequests.isEmpty)
         XCTAssertTrue(h.session.commandRequests.isEmpty)
-        XCTAssertEqual(h.session.panelState.text, "Running: screenshot")
+        XCTAssertEqual(h.session.panel.text, "Running: screenshot")
         h.clock.advance(by: .milliseconds(1500))
         XCTAssertEqual(h.session.commandRequests.count, 1)
         let r = try XCTUnwrap(h.session.commandRequests.first)
@@ -112,7 +112,7 @@ final class PluginCommandTests: XCTestCase {
         h.clock.advance(by: .milliseconds(2000))
         XCTAssertTrue(h.session.commandRequests.isEmpty)
         XCTAssertTrue(h.session.insertRequests.isEmpty)
-        XCTAssertEqual(h.session.panelState.text, "Cancelled: screenshot")
+        XCTAssertEqual(h.session.panel.text, "Cancelled: screenshot")
     }
 
     func test_R232_lowConfidenceIsTypedAsDictation() throws {
@@ -163,7 +163,7 @@ final class PluginCommandTests: XCTestCase {
         h.session.ingestPluginResult(for: 0, output: PluginOutput(insert: "done", notify: "Copied", send: nil))
         XCTAssertEqual(h.session.insertRequests.map(\.text), ["done"])
         XCTAssertEqual(h.session.insertRequests.first?.autoSendAllowed, false)
-        XCTAssertEqual(h.session.panelState.text, "Copied")
+        XCTAssertEqual(h.session.panel.text, "Copied")
         h.session.ingestPluginResult(for: 0, output: PluginOutput(insert: "again", notify: nil, send: true))
         XCTAssertEqual(h.session.insertRequests.last?.autoSendAllowed, true)
     }
