@@ -16,3 +16,4 @@
   trailing newline/Return.
 - G8 (R208) Test command: `scripts/test.sh` runs `swift test` and `swift test --filter DictationMacTests`, exits non-zero if
   either fails.
+- G2b (R209) Bug: the gateway rejects max_output_tokens above its server ceiling of 1000 (HTTP 400), so every request fell back. The request's max_output_tokens must be between 1 and 1000.
