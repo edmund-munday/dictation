@@ -29,6 +29,8 @@ struct MenuContent: View {
         Text(model.speechLabel)
         Text(model.cleanupLabel)
         Button("Re-check cleanup CLIs") { model.rechooseCleanup() }
+        Toggle("Auto-send in chat apps", isOn: Binding(get: { model.autoSendEnabled },
+                                                        set: { model.setAutoSend($0) }))
         Divider()
         Text("Permissions: " + model.permissions.summary)
         ForEach(model.permissions.missing, id: \.self) { kind in

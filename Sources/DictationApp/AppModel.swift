@@ -9,6 +9,7 @@ import Foundation
 /// Owns the core session and every Mac adapter. All session access happens on `work`.
 final class AppModel: ObservableObject {
     @Published var enabled = false
+    @Published var autoSendEnabled = true
     @Published var statusSymbol = "mic.slash"
     @Published var menuTitle = "Dictation Off"
     @Published var coreMenuText = ""
@@ -53,6 +54,8 @@ final class AppModel: ObservableObject {
         let available = !usesAppleSpeech || (transcriber as? AppleSpeechTranscriber)?.isAvailable == true
         pipeline = HoldPipeline(session: session, clock: clock, audio: mic, transcriber: transcriber, focus: ax)
         insertion = InsertionCoordinator(session: session, inserter: ax)
+        insertion.autoSend = AutoSendPolicy.load()
+        autoSendEnabled = insertion.autoSend?.enabled ?? true
         speechLabel = "Speech: " + transcriber.name
 
         let report = PermissionProbe.current(needsSpeechRecognition: usesAppleSpeech)
@@ -108,6 +111,13 @@ final class AppModel: ObservableObject {
     }
 
     // MARK: Actions
+
+    func setAutoSend(_ on: Bool) {
+        autoSendEnabled = on
+        UserDefaults.standard.set(on, forKey: AutoSendPolicy.enabledKey)
+        let policy = AutoSendPolicy.load()
+        work.async { [self] in insertion.autoSend = policy }
+    }
 
     func toggleEnabled() {
         work.async { [self] in

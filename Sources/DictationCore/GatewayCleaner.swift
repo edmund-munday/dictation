@@ -109,7 +109,7 @@ public final class GatewayCleaner {
             "temperature": 0,
             "messages": [
                 ["role": "system", "content": CleanupPrompt.text],
-                ["role": "user", "content": raw],
+                ["role": "user", "content": SpokenMarkup.tokenize(raw)],
             ],
             "max_output_tokens": 600,
             "timeout_ms": Int(config.timeoutSeconds * 1_000),

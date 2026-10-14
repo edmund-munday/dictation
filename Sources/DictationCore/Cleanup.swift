@@ -29,7 +29,7 @@ enum Cleanup {
     }
 
     static func clean(_ raw: String) -> String {
-        let converted = convertSpokenPunctuation(applyGrammar(raw))
+        let converted = SpokenMarkup.renderQuotes(convertSpokenPunctuation(applyGrammar(raw)))
         if let list = numberedList(converted) { return list }
         // Punctuate each line on its own; line breaks are text, never a trailing Return.
         let lines = converted.components(separatedBy: "\n").map { line -> String in

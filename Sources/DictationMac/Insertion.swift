@@ -15,6 +15,14 @@ public final class InsertionCoordinator {
     private var delivered = 0
     /// Text waiting behind the panel's Copy button after a failed insert.
     public private(set) var pendingCopyText: String?
+    /// Auto-send (R223): nil disables it entirely.
+    public var autoSend: AutoSendPolicy?
+    public var keySender: ReturnKeySender = CGReturnKeySender()
+    public var bundleForPID: (Int) -> String? = { NSRunningApplication(processIdentifier: pid_t($0))?.bundleIdentifier }
+    /// Waits for the insert (e.g. the Cmd-V paste) to land before Return.
+    public var schedule: (TimeInterval, @escaping () -> Void) -> Void = { delay, work in
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
+    }
 
     public init(session: Session, inserter: TextInserter, pasteboard: NSPasteboard = .general) {
         self.session = session
@@ -31,6 +39,12 @@ public final class InsertionCoordinator {
             if inserter.insert(request.text, into: request.target, replacingSelection: request.replacesSelection) {
                 pendingCopyText = nil
                 session.reportInsertionSucceeded(for: index)
+                if let policy = autoSend,
+                   policy.shouldSend(bundleID: bundleForPID(request.target.pid), inserted: true,
+                                     text: request.text, allowed: request.autoSendAllowed) {
+                    let keys = keySender
+                    schedule(0.15) { keys.sendReturn() }
+                }
             } else {
                 pendingCopyText = request.text
                 session.reportInsertionFailed(for: index)

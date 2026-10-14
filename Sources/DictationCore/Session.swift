@@ -97,6 +97,7 @@ public final class Session: @unchecked Sendable {
         var overlay: OverlayState
         var insert: Bool
         var maxLengthNote: Bool
+        var allowSend = true
     }
 
     private final class LLMJob {
@@ -898,6 +899,7 @@ public final class Session: @unchecked Sendable {
             insert: resolved.insert,
             maxLengthNote: maxLength
         )
+        deferred?.allowSend = resolved.allowSend
         panelState = PanelState(
             isVisible: true,
             text: maxLength ? MenuMessages.panelMaxLength : MenuMessages.panelCleaning
@@ -928,6 +930,7 @@ public final class Session: @unchecked Sendable {
             insert: resolved.insert,
             maxLengthNote: maxLength
         )
+        deferred?.allowSend = resolved.allowSend
         panelState = PanelState(
             isVisible: true,
             text: maxLength ? MenuMessages.panelMaxLength : MenuMessages.panelCleaning
@@ -943,9 +946,17 @@ public final class Session: @unchecked Sendable {
         var panel: PanelState
         var overlay: OverlayState
         var insert: Bool
+        var allowSend = true
     }
 
     private func resolveOutput(raw: String, cleaned: String, focus: FocusSnapshot?) -> ResolvedOutput {
+        let decision = SendIntent.decide(raw: raw, text: cleaned)
+        var out = resolveOutputCore(raw: raw, cleaned: decision.text, focus: focus)
+        out.allowSend = decision.allowSend
+        return out
+    }
+
+    private func resolveOutputCore(raw: String, cleaned: String, focus: FocusSnapshot?) -> ResolvedOutput {
         if !accessibilityGranted {
             return ResolvedOutput(
                 text: cleaned, target: nil, replaces: false, strippedNewline: false,
@@ -1122,6 +1133,7 @@ public final class Session: @unchecked Sendable {
                     job.panel = resolved.panel
                     job.overlay = resolved.overlay
                     job.insert = resolved.insert
+                    job.allowSend = resolved.allowSend
                 }
             }
             apply(job)
@@ -1162,6 +1174,7 @@ public final class Session: @unchecked Sendable {
         pendingCommit.panel = resolved.panel
         pendingCommit.overlay = resolved.overlay
         pendingCommit.insert = resolved.insert
+        pendingCommit.allowSend = resolved.allowSend
         pendingCommit.due = min(pendingCommit.due, clock.now)
         deferred = pendingCommit
     }
@@ -1180,6 +1193,7 @@ public final class Session: @unchecked Sendable {
             pendingCommit.panel = resolved.panel
             pendingCommit.overlay = resolved.overlay
             pendingCommit.insert = resolved.insert
+            pendingCommit.allowSend = resolved.allowSend
             pendingCommit.due = min(pendingCommit.due, clock.now)
         } else {
             if !cliUnavailableNoted && !statusOK {
@@ -1195,6 +1209,7 @@ public final class Session: @unchecked Sendable {
             pendingCommit.panel = resolved.panel
             pendingCommit.overlay = resolved.overlay
             pendingCommit.insert = resolved.insert
+            pendingCommit.allowSend = resolved.allowSend
         }
         deferred = pendingCommit
     }
@@ -1219,7 +1234,8 @@ public final class Session: @unchecked Sendable {
                 showCLIUnavailable = false
             }
             insertRequests.append(
-                InsertRequest(text: text, target: target, replacesSelection: job.replacesSelection)
+                InsertRequest(text: text, target: target, replacesSelection: job.replacesSelection,
+                              autoSendAllowed: job.allowSend)
             )
             overlayState = job.overlay
             if job.maxLengthNote {

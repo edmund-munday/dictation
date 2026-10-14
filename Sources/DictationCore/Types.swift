@@ -230,11 +230,14 @@ public struct InsertRequest: Sendable, Equatable {
     public var text: String
     public var target: FocusIdentity
     public var replacesSelection: Bool
+    /// False when the speaker ended with a "don't send" instruction (R222).
+    public var autoSendAllowed: Bool
 
-    public init(text: String, target: FocusIdentity, replacesSelection: Bool = false) {
+    public init(text: String, target: FocusIdentity, replacesSelection: Bool = false, autoSendAllowed: Bool = true) {
         self.text = text
         self.target = target
         self.replacesSelection = replacesSelection
+        self.autoSendAllowed = autoSendAllowed
     }
 }
 
