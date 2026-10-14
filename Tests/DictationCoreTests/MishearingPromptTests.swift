@@ -10,3 +10,12 @@ final class MishearingPromptTests: XCTestCase {
         XCTAssertTrue(p.contains("Meet me at the bar"), "needs an example where 'bar' is correct")
     }
 }
+
+final class GrokNamesPromptTests: XCTestCase {
+    func test_R226_promptKnowsGrokBotAndGrokBuild() {
+        let p = DictationCore.CleanupPrompt.text
+        XCTAssertTrue(p.contains("Grok Bot"))
+        XCTAssertTrue(p.contains("Grok Build"))
+        XCTAssertTrue(p.contains("my Grok button"), "example of the misheard name")
+    }
+}
