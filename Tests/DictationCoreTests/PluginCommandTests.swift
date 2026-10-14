@@ -5,7 +5,7 @@ import FoundationNetworking
 #endif
 import XCTest
 
-/// R229-R233, R236-R237: voice-command routing, local fast path, and cancel windows.
+/// R229-R233, R236-R237, R244-R247: voice-command routing and plugin contracts.
 final class PluginCommandTests: XCTestCase {
     static let screenshotJSON = """
     {"name":"screenshot","description":"Take a screenshot of the screen and copy it to the clipboard.",
@@ -447,6 +447,158 @@ final class PluginCommandTests: XCTestCase {
         XCTAssertEqual(h.session.commandRequests.count, 1)
         XCTAssertEqual(h.session.commandRequests.first?.args, ["subject": "the error dialog"])
         XCTAssertTrue(h.session.insertRequests.isEmpty)
+    }
+
+    func test_R244_replaceOutputParsingPreservesInsertNotifyAndSend() {
+        XCTAssertEqual(
+            PluginOutput.parse(stdout: #"{"insert":"append","notify":"Done","send":true,"replace":"replacement"}"#),
+            PluginOutput(insert: "append", notify: "Done", send: true, replace: "replacement"))
+        XCTAssertEqual(
+            PluginOutput.parse(stdout: #"{"replace":""}"#),
+            PluginOutput(insert: nil, notify: nil, send: nil, replace: ""))
+        XCTAssertNil(PluginOutput.parse(stdout: #"{"insert":"legacy"}"#).replace)
+    }
+
+    func test_R244_replaceWinsTargetsCommandFieldAndNeverAutoSends() throws {
+        let p = try plugin(Self.screenshotJSON, overriding: ["confirm_delay_s": 0])
+        let h = try harness(transport: Stub(text: nil), plugins: [p])
+        h.readyListening()
+        h.pressTalkKey()
+        h.speakWhileHeld("take a screenshot")
+        h.focusEditable(selectionLength: 8)
+        h.releaseTalkKey()
+        let command = try XCTUnwrap(h.session.commandRequests.first)
+        XCTAssertEqual(command.target, h.fieldIdentity)
+
+        // A later focus change must not retarget the plugin's result.
+        h.focusEditable(identity: FocusIdentity(pid: 42, elementID: "another-field"))
+        h.session.ingestPluginResult(for: 0, output: PluginOutput(
+            insert: "must not append", notify: "Replaced", send: true, replace: "new text"))
+        XCTAssertEqual(h.session.insertRequests, [InsertRequest(
+            text: "new text", target: h.fieldIdentity, replacesSelection: true, autoSendAllowed: false)])
+        XCTAssertEqual(h.session.panel.text, "Replaced")
+        XCTAssertTrue(h.session.emittedKeyEvents.isEmpty)
+    }
+
+    func test_R244_replaceWithoutInsertUsesNormalInsertionRequest() throws {
+        let p = try plugin(Self.screenshotJSON, overriding: ["confirm_delay_s": 0])
+        let h = try harness(transport: Stub(text: nil), plugins: [p])
+        release(h, "take a screenshot")
+        _ = try XCTUnwrap(h.session.commandRequests.first)
+        h.session.ingestPluginResult(for: 0, output: PluginOutput(
+            insert: nil, notify: nil, send: nil, replace: "replacement"))
+        XCTAssertEqual(h.session.insertRequests, [InsertRequest(
+            text: "replacement", target: h.fieldIdentity, replacesSelection: true, autoSendAllowed: false)])
+    }
+
+    func test_R244_emptyReplaceDoesNotTypeOrSend() throws {
+        let p = try plugin(Self.screenshotJSON, overriding: ["confirm_delay_s": 0])
+        let h = try harness(transport: Stub(text: nil), plugins: [p])
+        release(h, "take a screenshot")
+        _ = try XCTUnwrap(h.session.commandRequests.first)
+        for insert: String? in [nil, "must not append"] {
+            h.session.ingestPluginResult(for: 0, output: PluginOutput(
+                insert: insert, notify: "No change", send: true, replace: ""))
+            XCTAssertTrue(h.session.insertRequests.isEmpty)
+            XCTAssertTrue(h.session.emittedKeyEvents.isEmpty)
+            XCTAssertEqual(h.session.panel.text, "No change")
+        }
+    }
+
+    func test_R244_replaceWithoutCommandTargetDoesNotType() throws {
+        let p = try plugin(Self.screenshotJSON, overriding: ["confirm_delay_s": 0])
+        let h = try harness(transport: Stub(text: nil), plugins: [p])
+        h.latchOn()
+        h.clearFocus()
+        h.pressTalkKey()
+        h.speakWhileHeld("take a screenshot")
+        h.releaseTalkKey()
+        XCTAssertNil(try XCTUnwrap(h.session.commandRequests.first).target)
+        h.session.ingestPluginResult(for: 0, output: PluginOutput(
+            insert: nil, notify: nil, send: true, replace: "replacement"))
+        XCTAssertTrue(h.session.insertRequests.isEmpty)
+        XCTAssertTrue(h.session.emittedKeyEvents.isEmpty)
+    }
+
+    func test_R245_needsSelectionDefaultsFalseAndParsesExplicitValues() throws {
+        XCTAssertFalse(try PluginSpec.parse(Data(Self.screenshotJSON.utf8)).needsSelection)
+        XCTAssertTrue(try plugin(Self.screenshotJSON, overriding: ["needs_selection": true]).needsSelection)
+        XCTAssertFalse(try plugin(Self.screenshotJSON, overriding: ["needs_selection": false]).needsSelection)
+    }
+
+    func test_R245_missingSelectionAtReleaseRefusesCommandAndShowsInstruction() throws {
+        let p = try plugin(Self.screenshotJSON, overriding: ["needs_selection": true, "confirm_delay_s": 0])
+        for noField in [false, true] {
+            let h = try harness(transport: Stub(text: nil), plugins: [p])
+            h.readyListening()
+            h.focusEditable(selectionLength: 4)
+            h.pressTalkKey()
+            h.speakWhileHeld("take a screenshot")
+            if noField { h.clearFocus() } else { h.focusEditable(selectionLength: 0) }
+            h.releaseTalkKey()
+            XCTAssertTrue(h.session.panel.isVisible)
+            XCTAssertEqual(h.session.panel.text, "Select some text first.")
+            h.clock.advance(by: .seconds(4))
+            XCTAssertTrue(h.session.commandRequests.isEmpty)
+            XCTAssertTrue(h.session.insertRequests.isEmpty)
+            XCTAssertTrue(h.session.emittedKeyEvents.isEmpty)
+        }
+    }
+
+    func test_R245_selectionAddedBeforeReleaseAllowsCommand() throws {
+        let p = try plugin(Self.screenshotJSON, overriding: ["needs_selection": true, "confirm_delay_s": 0])
+        let h = try harness(transport: Stub(text: nil), plugins: [p])
+        h.readyListening()
+        h.pressTalkKey()
+        h.speakWhileHeld("take a screenshot")
+        h.focusEditable(selectionLength: 4)
+        h.releaseTalkKey()
+        XCTAssertEqual(h.session.commandRequests.count, 1)
+        XCTAssertEqual(h.session.commandRequests.first?.plugin.name, "screenshot")
+        XCTAssertTrue(h.session.insertRequests.isEmpty)
+    }
+
+    func test_R246_commandCarriesSelectedTextFromReleaseAndKeepsItAfterFocusChanges() throws {
+        let p = try plugin(Self.screenshotJSON, overriding: ["confirm_delay_s": 0])
+        let h = try harness(transport: Stub(text: nil), plugins: [p])
+        h.readyListening()
+        var focus = FocusSnapshot(timestamp: h.clock.now, role: .textField,
+                                  selectionLength: 5, identity: h.fieldIdentity)
+        focus.selectedText = "start"
+        h.session.ingestFocus(focus)
+        h.pressTalkKey()
+        h.speakWhileHeld("take a screenshot")
+        let selected = "Release selection: \"café\"\n第二行"
+        focus.timestamp = h.clock.now
+        focus.selectionLength = selected.count
+        focus.selectionContainsLineBreak = true
+        focus.selectedText = selected
+        h.session.ingestFocus(focus)
+        h.releaseTalkKey()
+        XCTAssertEqual(h.session.commandRequests.count, 1)
+        XCTAssertEqual(try XCTUnwrap(h.session.commandRequests.first).selectedText, selected)
+        h.focusEditable(identity: FocusIdentity(pid: 42, elementID: "other-field"))
+        XCTAssertEqual(h.session.commandRequests.first?.selectedText, selected)
+        XCTAssertTrue(h.session.insertRequests.isEmpty)
+    }
+
+    func test_R246_commandWithoutSelectionCarriesNilSelectedText() throws {
+        let p = try plugin(Self.screenshotJSON, overriding: ["confirm_delay_s": 0])
+        for noField in [false, true] {
+            let h = try harness(transport: Stub(text: nil), plugins: [p])
+            h.readyListening()
+            if noField { h.clearFocus() }
+            h.pressTalkKey()
+            h.speakWhileHeld("take a screenshot")
+            h.releaseTalkKey()
+            XCTAssertNil(try XCTUnwrap(h.session.commandRequests.first).selectedText)
+        }
+    }
+
+    func test_R247_managesMediaDefaultsFalseAndParsesExplicitValues() throws {
+        XCTAssertFalse(try PluginSpec.parse(Data(Self.screenshotJSON.utf8)).managesMedia)
+        XCTAssertTrue(try plugin(Self.screenshotJSON, overriding: ["manages_media": true]).managesMedia)
+        XCTAssertFalse(try plugin(Self.screenshotJSON, overriding: ["manages_media": false]).managesMedia)
     }
 
     // MARK: helpers

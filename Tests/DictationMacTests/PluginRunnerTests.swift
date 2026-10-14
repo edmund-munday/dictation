@@ -53,6 +53,50 @@ final class PluginRunnerTests: XCTestCase {
         XCTAssertEqual(r.output, PluginOutput(insert: "hi", notify: "Done", send: nil))
     }
 
+    func test_R246_selectedTextReachesEnvironmentAndStdinContextLiterally() throws {
+        let selected = "Selected \"café\"\n第二行; $(touch never-run)"
+        let s = try script(#"cat; printf '\n%s' "$DICTATION_SELECTED_TEXT""#)
+        let r = PluginRunner.run(try spec(s), args: [:], context: ["selected_text": selected])
+        XCTAssertEqual(r.exitCode, 0)
+        let separator = try XCTUnwrap(r.stdout.firstIndex(of: "\n"))
+        let payload = Data(r.stdout[..<separator].utf8)
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: payload) as? [String: Any])
+        let context = try XCTUnwrap(object["context"] as? [String: String])
+        XCTAssertEqual(context["selected_text"], selected)
+        XCTAssertEqual(String(r.stdout[r.stdout.index(after: separator)...]), selected)
+    }
+
+    func test_R246_absentSelectionDoesNotInventSelectedText() throws {
+        let s = try script(#"cat; printf '\n%s' "${DICTATION_SELECTED_TEXT:-}""#)
+        let r = PluginRunner.run(try spec(s), args: [:], context: [:])
+        XCTAssertEqual(r.exitCode, 0)
+        let parts = r.stdout.components(separatedBy: "\n")
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(parts[0].utf8)) as? [String: Any])
+        let context = try XCTUnwrap(object["context"] as? [String: String])
+        XCTAssertTrue((context["selected_text"] ?? "").isEmpty)
+        XCTAssertEqual(parts.last, "")
+    }
+
+    func test_R247_mediaWasPlayingReachesEnvironmentAndStdinContext() throws {
+        let s = try script(#"cat; printf '\n%s' "$DICTATION_MEDIA_WAS_PLAYING""#)
+        for wasPlaying in ["1", "0"] {
+            let r = PluginRunner.run(try spec(s), args: [:], context: ["media_was_playing": wasPlaying])
+            XCTAssertEqual(r.exitCode, 0)
+            let parts = r.stdout.components(separatedBy: "\n")
+            let object = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(parts[0].utf8)) as? [String: Any])
+            let context = try XCTUnwrap(object["context"] as? [String: String])
+            XCTAssertEqual(context["media_was_playing"], wasPlaying)
+            XCTAssertEqual(parts.last, wasPlaying)
+        }
+    }
+
+    func test_R244_runnerParsesReplaceOutput() throws {
+        let s = try script(#"echo '{"replace":"new text","insert":"ignored","notify":"Done","send":true}'"#)
+        let r = PluginRunner.run(try spec(s), args: [:], context: [:])
+        XCTAssertEqual(r.exitCode, 0)
+        XCTAssertEqual(r.output, PluginOutput(insert: "ignored", notify: "Done", send: true, replace: "new text"))
+    }
+
     func test_R234_timeoutKillsAndReportsFailure() throws {
         let s = try script("sleep 10")
         let start = Date()

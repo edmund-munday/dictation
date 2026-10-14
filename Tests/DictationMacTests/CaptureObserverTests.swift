@@ -1,5 +1,6 @@
 import DictationCore
 import DictationMac
+import Foundation
 import XCTest
 
 final class CaptureObserverTests: XCTestCase {
@@ -95,10 +96,69 @@ final class CaptureObserverTests: XCTestCase {
         XCTAssertTrue(notifications.isEmpty)
     }
 
-    private func makePipeline(_ h: MacHarness, audio: AudioSource) -> HoldPipeline {
+    func test_R248_captureEndSeesFastCommandAlreadyQueuedOnRelease() throws {
+        let h = try MacHarness()
+        let plugin = try PluginSpec.parse(Data(#"{"name":"capture","description":"test","triggers":["take a screenshot"],"action":{"type":"exec","path":"/bin/echo"},"confirm_delay_s":0}"#.utf8))
+        h.session.setPlugins([plugin])
+        let audio = CountingAudio()
+        let pipeline = makePipeline(h, audio: audio, transcript: "take a screenshot")
+        var ends = 0
+        pipeline.onCaptureEnd = {
+            ends += 1
+            XCTAssertFalse(audio.running)
+            XCTAssertFalse(pipeline.isCapturing)
+            XCTAssertEqual(h.session.commandRequests.count, 1)
+            XCTAssertEqual(h.session.commandRequests.first?.plugin.name, "capture")
+            XCTAssertEqual(h.session.commandRequests.first?.transcript, "take a screenshot")
+            XCTAssertTrue(h.session.insertRequests.isEmpty)
+        }
+        pipeline.handle(talkKey(h, isDown: true))
+        XCTAssertTrue(audio.running)
+        XCTAssertTrue(h.session.commandRequests.isEmpty)
+        h.clock.advance(by: .milliseconds(600))
+        pipeline.handle(talkKey(h, isDown: false))
+        XCTAssertEqual(ends, 1)
+        pipeline.handle(talkKey(h, isDown: false))
+        pipeline.partialTick()
+        XCTAssertEqual(ends, 1)
+        XCTAssertEqual(h.session.commandRequests.count, 1)
+        pipeline.onCaptureEnd = nil
+    }
+
+    func test_R248_cancelByAnotherKeyNotifiesEndOnceWithoutRunningCommand() throws {
+        let h = try MacHarness()
+        let plugin = try PluginSpec.parse(Data(#"{"name":"capture","description":"test","triggers":["take a screenshot"],"action":{"type":"exec","path":"/bin/echo"},"confirm_delay_s":0}"#.utf8))
+        h.session.setPlugins([plugin])
+        let audio = CountingAudio()
+        let pipeline = makePipeline(h, audio: audio, transcript: "take a screenshot")
+        var ends = 0
+        pipeline.onCaptureEnd = {
+            ends += 1
+            XCTAssertFalse(audio.running)
+            XCTAssertFalse(pipeline.isCapturing)
+            XCTAssertTrue(h.session.commandRequests.isEmpty)
+            XCTAssertTrue(h.session.insertRequests.isEmpty)
+        }
+        pipeline.handle(talkKey(h, isDown: true))
+        h.clock.advance(by: .milliseconds(600))
+        pipeline.partialTick()
+        pipeline.handle(.talk(TalkKeyEvent(
+            timestamp: h.clock.now, identity: .character("c"), isDown: true)))
+        XCTAssertEqual(ends, 1)
+        pipeline.handle(.talk(TalkKeyEvent(
+            timestamp: h.clock.now, identity: .character("c"), isDown: false)))
+        pipeline.handle(talkKey(h, isDown: false))
+        pipeline.partialTick()
+        XCTAssertEqual(ends, 1)
+        XCTAssertTrue(h.session.commandRequests.isEmpty)
+        XCTAssertTrue(h.session.insertRequests.isEmpty)
+        pipeline.onCaptureEnd = nil
+    }
+
+    private func makePipeline(_ h: MacHarness, audio: AudioSource, transcript: String? = nil) -> HoldPipeline {
         HoldPipeline(
             session: h.session, clock: h.clock, audio: audio,
-            transcriber: ScriptedTranscriber(nil),
+            transcriber: ScriptedTranscriber(transcript),
             focus: FixedFocus { time in
                 var snapshot = h.field()
                 snapshot.timestamp = time

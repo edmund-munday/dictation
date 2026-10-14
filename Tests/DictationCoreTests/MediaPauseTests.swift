@@ -145,6 +145,73 @@ final class MediaPauseTests: XCTestCase {
         XCTAssertTrue(MediaPauseCoordinator.isEnabled(in: defaults))
     }
 
+    func test_R247_handOffReportsPausedMediaAndPreventsResume() {
+        let controller = RecordingMediaController(state: .playing)
+        let coordinator = MediaPauseCoordinator(controller: controller, enabled: true)
+        coordinator.dictationStarted()
+        XCTAssertEqual(controller.commands, [.pause])
+
+        // The current OS state is paused; handoff reports what dictation paused.
+        controller.state = .notPlaying
+        XCTAssertTrue(coordinator.handOff())
+        XCTAssertFalse(coordinator.handOff())
+        coordinator.dictationEnded()
+        coordinator.dictationEnded()
+        XCTAssertEqual(controller.commands, [.pause])
+    }
+
+    func test_R247_handOffWithoutPausedMediaReturnsFalseAndDoesNotResume() {
+        for state: MediaPlayState in [.notPlaying, .unknown] {
+            let controller = RecordingMediaController(state: state)
+            let coordinator = MediaPauseCoordinator(controller: controller, enabled: true)
+            XCTAssertFalse(coordinator.handOff())
+            coordinator.dictationStarted()
+            controller.state = .playing
+            XCTAssertFalse(coordinator.handOff())
+            coordinator.dictationEnded()
+            XCTAssertTrue(controller.commands.isEmpty)
+        }
+        let controller = RecordingMediaController(state: .playing)
+        let disabled = MediaPauseCoordinator(controller: controller, enabled: false)
+        disabled.dictationStarted()
+        XCTAssertFalse(disabled.handOff())
+        disabled.dictationEnded()
+        XCTAssertTrue(controller.calls.isEmpty)
+    }
+
+    func test_R247_handOffAfterNormalEndReturnsFalse() {
+        let controller = RecordingMediaController(state: .playing)
+        let coordinator = MediaPauseCoordinator(controller: controller, enabled: true)
+        coordinator.dictationStarted()
+        coordinator.dictationEnded()
+        XCTAssertFalse(coordinator.handOff())
+        coordinator.dictationEnded()
+        XCTAssertEqual(controller.commands, [.pause, .resume])
+    }
+
+    func test_R247_laterDictationCanPauseAndResumeAfterHandOff() {
+        let controller = RecordingMediaController(state: .playing)
+        let coordinator = MediaPauseCoordinator(controller: controller, enabled: true)
+        coordinator.dictationStarted()
+        XCTAssertTrue(coordinator.handOff())
+        coordinator.dictationEnded()
+        controller.calls.removeAll()
+
+        coordinator.dictationStarted()
+        coordinator.dictationEnded()
+        XCTAssertEqual(controller.commands, [.pause, .resume])
+    }
+
+    func test_R247_disablingAfterPauseDoesNotLoseHandOff() {
+        let controller = RecordingMediaController(state: .playing)
+        let coordinator = MediaPauseCoordinator(controller: controller, enabled: true)
+        coordinator.dictationStarted()
+        coordinator.enabled = false
+        XCTAssertTrue(coordinator.handOff())
+        coordinator.dictationEnded()
+        XCTAssertEqual(controller.commands, [.pause])
+    }
+
     private func assertMediaIsLeftAlone(
         state: MediaPlayState, file: StaticString = #filePath, line: UInt = #line
     ) {
