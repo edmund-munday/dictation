@@ -17,3 +17,8 @@
 - G8 (R208) Test command: `scripts/test.sh` runs `swift test` and `swift test --filter DictationMacTests`, exits non-zero if
   either fails.
 - G2b (R209) Bug: the gateway rejects max_output_tokens above its server ceiling of 1000 (HTTP 400), so every request fell back. The request's max_output_tokens must be between 1 and 1000.
+
+## Follow-up (Edmund, 2026-10-14 12:58): "make the prompt firmer about spoken punctuation, add an example pair, and add a check after cleanup that uses the local rules if a spoken-punctuation word was dropped; send temperature 0 from the app"
+- R210 Prompt: CleanupPrompt.text explicitly lists the spoken punctuation words "comma", "full stop", "period", "question mark", "exclamation mark", "new line", "new paragraph", says they are kept exactly as words (never converted to symbols or line breaks, never dropped), and contains one example input/output pair showing a spoken punctuation word kept.
+- R211 Guard: if the raw transcript contains a spoken-punctuation word (case-insensitive, whole words; list as in R210) and the LLM result (gateway or CLI) contains fewer occurrences of it, the result is rejected and the local rule-based cleanup is inserted instead. A result that keeps them is inserted as before.
+- R212 The gateway request body includes "temperature": 0.
