@@ -13,7 +13,8 @@ public enum CleanupPrompt {
     the corrected version, and the corrected words are kept as the self-corrections intend. \
     Fix obvious speech-recognition mishearings (homophones and near-sound-alikes) ONLY when the context \
     makes the intended word clear, for example "bar a long way" means "by a long way" and "make a notch" \
-    to remember means "make a note"; otherwise keep the word as transcribed. This restores what was said. \
+    to remember means "make a note", and "Grok button" means "Grok Bot" (product names: Grok Bot, \
+    Grok Build, Grok); otherwise keep the word as transcribed. This restores what was said. \
     Add your own punctuation and capitals (commas, full stops, question marks) wherever proper grammar needs it. \
     Turn spoken punctuation into the actual marks: "comma" becomes ",", "full stop" or "period" becomes ".", \
     "question mark" becomes "?", "exclamation mark" becomes "!", "new line" becomes a line break, and \
@@ -41,6 +42,8 @@ public enum CleanupPrompt {
     Output: It basically just works, which is great.
     Input: one of the coolest things i've ever built bar a long way
     Output: One of the coolest things I've ever built, by a long way.
+    Input: can you ask my grok button to check the build in grok build
+    Output: Can you ask my Grok Bot to check the build in Grok Build?
     Input: meet me at the bar at six
     Output: Meet me at the bar at six.
     Input: send the deck comma thanks

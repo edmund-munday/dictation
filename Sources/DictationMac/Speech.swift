@@ -101,7 +101,7 @@ public final class WhisperTranscriber: SpeechTranscriber {
     /// Vocabulary hint passed as whisper's initial prompt; override with the `whisperPrompt` default
     /// (empty string disables it).
     public var initialPrompt: String = UserDefaults.standard.string(forKey: "whisperPrompt")
-        ?? "Edmund dictating notes and messages: note, notes, gateway, Grok, Claude, Codex, MacBook, Origin, worker, dictation."
+        ?? "Edmund dictating notes and messages: note, notes, gateway, Grok, Grok Bot, Grok Build, Claude, Codex, MacBook, Origin, worker, dictation."
 
     public static let defaultExecutables: [URL] = [
         URL(fileURLWithPath: "/opt/homebrew/bin/whisper-cli"),
