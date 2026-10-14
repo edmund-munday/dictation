@@ -1,0 +1,194 @@
+{
+ "long-dictation": {
+  "interval_s": 1.6,
+  "partials": [
+   {
+    "t": 1.6,
+    "text": "So I had a look at the quarterly notes."
+   },
+   {
+    "t": 3.2,
+    "text": "So I had a look at the quarterly numbers this morning, and they are on a"
+   },
+   {
+    "t": 4.8,
+    "text": "So I had a look at the quarterly numbers this morning, and they are honestly better than I expected."
+   },
+   {
+    "t": 6.4,
+    "text": "So I had a look at the quarterly numbers this morning, and they are honestly better than I expected. Sales in the north region"
+   },
+   {
+    "t": 8.0,
+    "text": "So I had a look at the quarterly numbers this morning, and they are honestly better than I expected. Sales in the north region went up by about 12%"
+   },
+   {
+    "t": 9.6,
+    "text": "So I had a look at the quarterly numbers this morning, and they are honestly better than I expected. Sales in the north region went up by about 12%, which is really good news"
+   },
+   {
+    "t": 11.2,
+    "text": "So I had a look at the quarterly numbers this morning, and they are honestly better than I expected. Sales in the north region went up by about 12%, which is really good news for the team."
+   },
+   {
+    "t": 12.8,
+    "text": "So I had a look at the quarterly numbers this morning, and they are honestly better than I expected. Sales in the north region went up by about 12%, which is really good news for the team. The south region is still a bit flat, um,"
+   },
+   {
+    "t": 14.4,
+    "text": "So I had a look at the quarterly numbers this morning, and they are honestly better than I expected. Sales in the north region went up by about 12%, which is really good news for the team. The south region is still a bit flat, um, but the new pricing only"
+   },
+   {
+    "t": 16.0,
+    "text": "So I had a look at the quarterly numbers this morning, and they are honestly better than I expected. Sales in the north region went up by about 12%, which is really good news for the team. The south region is still a bit flat, um, but the new pricing only started last month."
+   },
+   {
+    "t": 17.6,
+    "text": "So I had a look at the quarterly numbers this morning, and they are honestly better than I expected. Sales in the north region went up by about 12%, which is really good news for the team. The south region is still a bit flat, um, but the new pricing only started last month. I think we should give it until the end"
+   },
+   {
+    "t": 19.2,
+    "text": "So I had a look at the quarterly numbers this morning, and they are honestly better than I expected. Sales in the north region went up by about 12%, which is really good news for the team. The south region is still a bit flat, um, but the new pricing only started last month. I think we should give it until the end of November before we change"
+   },
+   {
+    "t": 20.8,
+    "text": "So I had a look at the quarterly numbers this morning, and they are honestly better than I expected. Sales in the north region went up by about 12%, which is really good news for the team. The south region is still a bit flat, um, but the new pricing only started last month. I think we should give it until the end of November before we change anything. Can you put together a"
+   },
+   {
+    "t": 22.4,
+    "text": "So I had a look at the quarterly numbers this morning, and they are honestly better than I expected. Sales in the north region went up by about 12%, which is really good news for the team. The south region is still a bit flat, um, but the new pricing only started last month. I think we should give it until the end of November before we change anything. Can you put together a short summary for Friday's"
+   },
+   {
+    "t": 24.0,
+    "text": "So I had a look at the quarterly numbers this morning, and they are honestly better than I expected. Sales in the north region went up by about 12%, which is really good news for the team. The south region is still a bit flat, um, but the new pricing only started last month. I think we should give it until the end of November before we change anything. Can you put together a short summary for Friday's meeting and send it to Sarah and"
+   },
+   {
+    "t": 25.6,
+    "text": "So I had a look at the quarterly numbers this morning, and they are honestly better than I expected. Sales in the north region went up by about 12%, which is really good news for the team. The south region is still a bit flat, um, but the new pricing only started last month. I think we should give it until the end of November before we change anything. Can you put together a short summary for Friday's meeting and send it to Sarah and Tom? Actually, I mean"
+   },
+   {
+    "t": 27.2,
+    "text": "So I had a look at the quarterly numbers this morning, and they are honestly better than I expected. Sales in the North region went up by about 12%, which is really good news for the team. The South region is still a bit flat, um, but the new pricing only started last month. I think we should give it until the end of November before we change anything. Can you put together a short summary for Friday's meeting and send it to Sarah and Tom? Actually, I mean Thursday's meeting, not Friday."
+   }
+  ],
+  "final": "So I had a look at the quarterly numbers this morning, and they are honestly better than I expected. Sales in the North region went up by about 12%, which is really good news for the team. The South region is still a bit flat, um, but the new pricing only started last month. I think we should give it until the end of November before we change anything. Can you put together a short summary for Friday's meeting and send it to Sarah and Tom? Actually, I mean Thursday's meeting, not Friday.",
+  "duration_s": 27.59
+ },
+ "long-scratch": {
+  "interval_s": 1.6,
+  "partials": [
+   {
+    "t": 1.6,
+    "text": "I want to book the venue for the end of"
+   },
+   {
+    "t": 3.2,
+    "text": "I want to book the venue for the end of year party, it needs to"
+   },
+   {
+    "t": 4.8,
+    "text": "I want to book the venue for the end of year party, it needs to fit about 40 people and have"
+   },
+   {
+    "t": 6.4,
+    "text": "I want to book the venue for the end of year party, it needs to fit about 40 people and have decent parking, the place"
+   },
+   {
+    "t": 8.0,
+    "text": "I want to book the venue for the end of year party, it needs to fit about 40 people and have decent parking. The place on George Street looked good when"
+   },
+   {
+    "t": 9.6,
+    "text": "I want to book the venue for the end of year party, it needs to fit about 40 people and have decent parking. The place on George Street looked good when we went past it last week."
+   },
+   {
+    "t": 11.2,
+    "text": "I want to book the venue for the end of year party, it needs to fit about 40 people and have decent parking. The place on George Street looked good when we went past it last week, we could also do a set menu"
+   },
+   {
+    "t": 12.8,
+    "text": "I want to book the venue for the end of year party. It needs to fit about 40 people and have decent parking. The place on George Street looked good when we went past it last week. We could also do a set menu so nobody has to order it."
+   },
+   {
+    "t": 14.4,
+    "text": "I want to book the venue for the end of year party, it needs to fit about 40 people and have decent parking. The place on George Street looked good when we went past it last week. We could also do a set menu so nobody has to order at the table. Scratch that"
+   },
+   {
+    "t": 16.0,
+    "text": "I want to book the venue for the end of year party. It needs to fit about 40 people and have decent parking. The place on George Street looked good when we went past it last week. We could also do a set menu so nobody has to order at the table. Scratch that last bit, people like"
+   },
+   {
+    "t": 17.6,
+    "text": "I want to book the venue for the end of year party. It needs to fit about 40 people and have decent parking. The place on George Street looked good when we went past it last week. We could also do a set menu so nobody has to order at the table. Scratch that last bit, people like choosing their own food."
+   }
+  ],
+  "final": "I want to book the venue for the end of year party. It needs to fit about 40 people and have decent parking. The place on George Street looked good when we went past it last week. We could also do a set menu so nobody has to order at the table. Scratch that last bit, people like choosing their own food. Let me know what you think by Monday.",
+  "duration_s": 18.93
+ },
+ "long-plain": {
+  "interval_s": 1.6,
+  "partials": [
+   {
+    "t": 1.6,
+    "text": "Hey Kazey, thanks for sending"
+   },
+   {
+    "t": 3.2,
+    "text": "Hey Kazey, thanks for sending the draft through yesterday."
+   },
+   {
+    "t": 4.8,
+    "text": "Hey Kazey, thanks for sending the draft through yesterday. I read it on the train this morning"
+   },
+   {
+    "t": 6.4,
+    "text": "Hey Kazey, thanks for sending the draft through yesterday. I read it on the train this morning and I really like the overall"
+   },
+   {
+    "t": 8.0,
+    "text": "Hey Kazey, thanks for sending the draft through yesterday. I read it on the train this morning, and I really like the overall structure. The introduction"
+   },
+   {
+    "t": 9.6,
+    "text": "Hey Kazey, thanks for sending the draft through yesterday. I read it on the train this morning, and I really like the overall structure. The introduction is strong, but the middle"
+   },
+   {
+    "t": 11.2,
+    "text": "Hey Kazey, thanks for sending the draft through yesterday. I read it on the train this morning, and I really like the overall structure. The introduction is strong, but the middle section about the budget could be a bit"
+   },
+   {
+    "t": 12.8,
+    "text": "Hey Kazey, thanks for sending the draft through yesterday. I read it on the train this morning, and I really like the overall structure. The introduction is strong, but the middle section about the budget could be a bit tighter. I would also move"
+   },
+   {
+    "t": 14.4,
+    "text": "Hey Kazey, thanks for sending the draft through yesterday. I read it on the train this morning, and I really like the overall structure. The introduction is strong, but the middle section about the budget could be a bit tighter. I would also move the timeline to the end,"
+   },
+   {
+    "t": 16.0,
+    "text": "Hey Kazey, thanks for sending the draft through yesterday. I read it on the train this morning, and I really like the overall structure. The introduction is strong, but the middle section about the budget could be a bit tighter. I would also move the timeline to the end, so the reader gets the main argument"
+   },
+   {
+    "t": 17.6,
+    "text": "Hey Kazey, thanks for sending the draft through yesterday. I read it on the train this morning, and I really like the overall structure. The introduction is strong, but the middle section about the budget could be a bit tighter. I would also move the timeline to the end, so the reader gets the main argument first. Let me know if you"
+   },
+   {
+    "t": 19.2,
+    "text": "Hey Kazey, thanks for sending the draft through yesterday. I read it on the train this morning, and I really like the overall structure. The introduction is strong, but the middle section about the budget could be a bit tighter. I would also move the timeline to the end, so the reader gets the main argument first. Let me know if you want to go through it together on a call."
+   }
+  ],
+  "final": "Hey Kazey, thanks for sending the draft through yesterday. I read it on the train this morning, and I really like the overall structure. The introduction is strong, but the middle section about the budget could be a bit tighter. I would also move the timeline to the end, so the reader gets the main argument first. Let me know if you want to go through it together on a call later this week.",
+  "duration_s": 20.31
+ },
+ "short-dictation": {
+  "interval_s": 1.6,
+  "partials": [
+   {
+    "t": 1.6,
+    "text": "Sounds good, see you at"
+   }
+  ],
+  "final": "Sounds good, see you at 3.",
+  "duration_s": 2.05
+ }
+}
