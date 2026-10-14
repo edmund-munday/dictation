@@ -31,6 +31,9 @@ struct MenuContent: View {
         Button("Re-check cleanup CLIs") { model.rechooseCleanup() }
         Toggle("Auto-send in chat apps", isOn: Binding(get: { model.autoSendEnabled },
                                                         set: { model.setAutoSend($0) }))
+        Toggle("Save dictations for tuning", isOn: Binding(get: { model.saveDictations },
+                                                           set: { model.setSaveDictations($0) }))
+        Button("Reveal dictation log folder") { model.revealCorpusFolder() }
         Divider()
         Text("Permissions: " + model.permissions.summary)
         ForEach(model.permissions.missing, id: \.self) { kind in

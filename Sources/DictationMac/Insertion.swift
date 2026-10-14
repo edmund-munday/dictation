@@ -13,6 +13,8 @@ public final class InsertionCoordinator {
     private let inserter: TextInserter
     private let pasteboard: NSPasteboard
     private var delivered = 0
+    /// Per insert-request index: (inserted, autoSent). Read by CorpusLogger (R228).
+    public private(set) var outcomes: [Int: (inserted: Bool, autoSent: Bool)] = [:]
     /// Text waiting behind the panel's Copy button after a failed insert.
     public private(set) var pendingCopyText: String?
     /// Auto-send (R223): nil disables it entirely.
@@ -44,9 +46,13 @@ public final class InsertionCoordinator {
                                      text: request.text, allowed: request.autoSendAllowed) {
                     let keys = keySender
                     schedule(0.15) { keys.sendReturn() }
+                    outcomes[index] = (true, true)
+                } else {
+                    outcomes[index] = (true, false)
                 }
             } else {
                 pendingCopyText = request.text
+                outcomes[index] = (false, false)
                 session.reportInsertionFailed(for: index)
             }
         }

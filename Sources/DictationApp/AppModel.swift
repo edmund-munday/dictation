@@ -10,6 +10,8 @@ import Foundation
 final class AppModel: ObservableObject {
     @Published var enabled = false
     @Published var autoSendEnabled = true
+    @Published var saveDictations = UserDefaults.standard.object(forKey: "saveDictationsForTuning") as? Bool ?? true
+    private lazy var corpus = CorpusLogger(enabled: saveDictations)
     @Published var statusSymbol = "mic.slash"
     @Published var menuTitle = "Dictation Off"
     @Published var coreMenuText = ""
@@ -111,6 +113,18 @@ final class AppModel: ObservableObject {
     }
 
     // MARK: Actions
+
+    func setSaveDictations(_ on: Bool) {
+        saveDictations = on
+        UserDefaults.standard.set(on, forKey: "saveDictationsForTuning")
+        work.async { self.corpus.enabled = on }
+    }
+
+    func revealCorpusFolder() {
+        let dir = CorpusLogger.defaultDirectory
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        NSWorkspace.shared.activateFileViewerSelecting([dir])
+    }
 
     func setAutoSend(_ on: Bool) {
         autoSendEnabled = on
@@ -217,6 +231,7 @@ final class AppModel: ObservableObject {
     /// On `work`: deliver inserts, then publish UI state.
     private func afterSessionChange() {
         insertion.poll()
+        corpus.poll(session: session, coordinator: insertion)
         updatePartialTimer()
         publish()
     }

@@ -126,7 +126,7 @@ After the 2026-10-13 change, R61–R78 define the **local rule-based fallback** 
 | ID | Requirement | Src | Test |
 |---|---|---|---|
 | R88 | No audio file is ever written. | B, D7 | L (fs watch), M |
-| R89 | No transcript log is written. | T | L, M |
+| R89 | No transcript log is written. (REPLACED by R228 for the tuning corpus) | T | L, M |
 | R90 | Audio is never sent to Cursor CLI or Claude CLI; only the phrase text is. | D2 | L |
 | R91 | ~~Before the first CLI use, the app shows: "Sending the transcript to <Cursor CLI/Claude CLI> leaves this Mac. Audio stays here." and the CLI is used only after the user confirms.~~ **REMOVED**: requirements change 2026-10-13: hold-to-talk replaces always-on; Edmund approved CLI use, no consent prompt. | — | — |
 | R92 | The CLI backend can be turned off in Settings; then no CLI process is started. | D2 | L |

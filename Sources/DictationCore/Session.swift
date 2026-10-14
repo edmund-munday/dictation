@@ -56,6 +56,11 @@ public final class Session: @unchecked Sendable {
     private var cleanupBackend: CleanupBackend = .off
     private var cleanupExecutablePath: String?
     private var gatewayCleaner: GatewayCleaner?
+    /// Tuning-corpus records (R228); never includes secure-field utterances.
+    public private(set) var utteranceRecords: [UtteranceRecord] = []
+    private var releaseTimes: [Int: Duration] = [:]
+    private var insertCountBeforeApply = 0
+    private var releaseFocuses: [Int: FocusSnapshot] = [:]
     private var gatewayJob: GatewayJob?
 
     private var talkKeyDown = false
@@ -644,6 +649,12 @@ public final class Session: @unchecked Sendable {
     }
 
     private func cancelForOtherKey(_ identity: KeyIdentity) {
+        if let hold = capture, !hold.text.isEmpty, !(hold.focusAtDown.map(Self.isSecure) ?? false) {
+            utteranceRecords.append(UtteranceRecord(
+                timestamp: Date(), raw: hold.text, tokenized: SpokenMarkup.tokenize(hold.text), cleaned: "",
+                backend: "none", latencyMs: 0, fieldRole: hold.focusAtDown?.role ?? .none,
+                target: hold.focusAtDown?.identity, insertIndex: nil, autoSendAllowed: false, cancelled: true))
+        }
         talkKeyDown = false
         capture = nil
         panelState = .hidden
@@ -674,6 +685,8 @@ public final class Session: @unchecked Sendable {
         gatewayJob = nil
         commitGeneration += 1
         let generation = commitGeneration
+        releaseTimes[generation] = releaseAt
+        releaseFocuses[generation] = releaseFocus ?? hold.focusAtDown
         let raw = hold.text
         let local = Cleanup.clean(raw)
         let focusShot = hold.focusAtDown
@@ -1225,7 +1238,41 @@ public final class Session: @unchecked Sendable {
         return releaseFocus
     }
 
+    private static func isSecure(_ focus: FocusSnapshot) -> Bool {
+        focus.isSecureInput || focus.role == .secureTextField
+    }
+
+    private func recordUtterance(_ job: DeferredCommit, insertIndex: Int?) {
+        let focus = releaseFocuses.removeValue(forKey: job.generation) ?? releaseFocus
+        if let focus, Self.isSecure(focus) { return }
+        let raw = job.raw
+        guard !raw.isEmpty else { return }
+        let cleaned = job.text ?? ""
+        var backend = "local"
+        switch cleanupBackend {
+        case .gateway, .cursorCLI, .claudeCLI, .grokCLI:
+            let squash = { (t: String) in t.filter { !$0.isWhitespace } }
+            let local = SendIntent.decide(raw: raw, text: Cleanup.clean(raw)).text
+            if squash(local) != squash(cleaned) {
+                backend = cleanupBackend == .gateway ? "gateway" : "cli"
+            }
+        default: break
+        }
+        let released = releaseTimes.removeValue(forKey: job.generation) ?? clock.now
+        let c = (clock.now - released).components
+        let ms = max(0, Int(c.seconds * 1000 + c.attoseconds / 1_000_000_000_000_000))
+        utteranceRecords.append(UtteranceRecord(
+            timestamp: Date(), raw: raw, tokenized: SpokenMarkup.tokenize(raw), cleaned: cleaned,
+            backend: backend, latencyMs: ms, fieldRole: focus?.role ?? .none, target: job.target,
+            insertIndex: insertIndex, autoSendAllowed: job.allowSend, cancelled: false))
+    }
+
     private func apply(_ job: DeferredCommit) {
+        insertCountBeforeApply = insertRequests.count
+        defer {
+            let idx = insertRequests.count > insertCountBeforeApply ? insertRequests.count - 1 : nil
+            recordUtterance(job, insertIndex: idx)
+        }
         if showCLIUnavailable {
             // Leave the note observable until the next commit starts.
         }

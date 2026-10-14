@@ -378,3 +378,19 @@ public struct SessionPaths: Sendable, Equatable {
         self.workingDirectory = workingDirectory
     }
 }
+
+/// One completed (or cancelled) utterance, for the tuning corpus (R228). Text only.
+public struct UtteranceRecord: Sendable, Equatable {
+    public var timestamp: Date
+    public var raw: String
+    public var tokenized: String
+    public var cleaned: String
+    public var backend: String
+    public var latencyMs: Int
+    public var fieldRole: FieldRole
+    public var target: FocusIdentity?
+    /// Index into `Session.insertRequests` when an insert was requested.
+    public var insertIndex: Int?
+    public var autoSendAllowed: Bool
+    public var cancelled: Bool
+}
