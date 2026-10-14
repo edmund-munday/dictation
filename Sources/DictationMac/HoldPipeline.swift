@@ -13,6 +13,10 @@ public final class HoldPipeline {
     public var beforeHold: (() -> Void)?
     /// Called whenever the session may have new output.
     public var onChange: (() -> Void)?
+    /// Called once after the microphone successfully starts capturing.
+    public var onCaptureStart: (() -> Void)?
+    /// Called once after capture stops, including cancellation by another key.
+    public var onCaptureEnd: (() -> Void)?
     public private(set) var isCapturing = false
 
     public init(
@@ -58,6 +62,7 @@ public final class HoldPipeline {
     }
 
     private func begin(_ event: TalkKeyEvent) {
+        guard !isCapturing else { return }
         beforeHold?()
         session.ingestFocus(focus.currentFocus(at: clock.now))
         session.ingestTalkKey(event)
@@ -65,6 +70,7 @@ public final class HoldPipeline {
         do {
             try audio.start()
             isCapturing = true
+            onCaptureStart?()
         } catch {
             isCapturing = false
         }
@@ -84,8 +90,10 @@ public final class HoldPipeline {
     }
 
     private func stopCapture() {
+        guard isCapturing else { return }
         audio.stop()
         isCapturing = false
+        onCaptureEnd?()
     }
 
     private func ingest(_ text: String, final: Bool) {

@@ -1,8 +1,41 @@
 import AppKit
+import Darwin
+import DictationCore
 import DictationMac
+import Foundation
 import SwiftUI
 
 @main
+enum DictationEntryPoint {
+    static func main() {
+        if CommandLine.arguments.contains("--media-selftest") {
+            let mediaQueue = DispatchQueue(label: "dictation.media.selftest")
+            mediaQueue.sync {
+                let controller = PerlMediaRemoteController()
+                let coordinator = MediaPauseCoordinator(
+                    controller: controller, enabled: MediaPauseCoordinator.isEnabled(in: .standard))
+                func printState(_ label: String) {
+                    let state: String
+                    switch controller.playState() {
+                    case .playing: state = "playing"
+                    case .notPlaying: state = "stopped"
+                    case .unknown: state = "unknown"
+                    }
+                    print("\(label): \(state)")
+                }
+                printState("Detected")
+                coordinator.dictationStarted()
+                printState("After start")
+                Thread.sleep(forTimeInterval: 1.5)
+                coordinator.dictationEnded()
+                printState("After end")
+            }
+            exit(0)
+        }
+        DictationMenuBarApp.main()
+    }
+}
+
 struct DictationMenuBarApp: App {
     @StateObject private var model = AppModel()
 
@@ -31,6 +64,8 @@ struct MenuContent: View {
         Button("Re-check cleanup CLIs") { model.rechooseCleanup() }
         Toggle("Auto-send in chat apps", isOn: Binding(get: { model.autoSendEnabled },
                                                         set: { model.setAutoSend($0) }))
+        Toggle("Pause media while dictating", isOn: Binding(get: { model.pauseMediaWhileDictating },
+                                                           set: { model.setPauseMediaWhileDictating($0) }))
         Toggle("Save dictations for tuning", isOn: Binding(get: { model.saveDictations },
                                                            set: { model.setSaveDictations($0) }))
         Button("Reveal dictation log folder") { model.revealCorpusFolder() }

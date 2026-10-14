@@ -10,6 +10,7 @@ import Foundation
 final class AppModel: ObservableObject {
     @Published var enabled = false
     @Published var autoSendEnabled = true
+    @Published var pauseMediaWhileDictating = MediaPauseCoordinator.isEnabled(in: .standard)
     @Published var saveDictations = UserDefaults.standard.object(forKey: "saveDictationsForTuning") as? Bool ?? true
     private lazy var corpus = CorpusLogger(enabled: saveDictations)
     @Published var statusSymbol = "mic.slash"
@@ -24,6 +25,9 @@ final class AppModel: ObservableObject {
     @Published var pluginErrors: [String: String] = [:]
     private var commandsHandled = 0
     private let pluginQueue = DispatchQueue(label: "dictation.plugins", qos: .userInitiated)
+    private let mediaQueue = DispatchQueue(label: "dictation.media", qos: .userInitiated)
+    private let mediaCoordinator = MediaPauseCoordinator(
+        controller: PerlMediaRemoteController(), enabled: MediaPauseCoordinator.isEnabled(in: .standard))
 
     private let work = DispatchQueue(label: "dictation.session")
     private let clock: QueueClock
@@ -88,6 +92,12 @@ final class AppModel: ObservableObject {
         try? BundledPlugins.install(into: PluginLoader.defaultDirectory)
         reloadPlugins()
         pipeline.beforeHold = { [weak self] in self?.refreshCallState() }
+        pipeline.onCaptureStart = { [mediaQueue, mediaCoordinator] in
+            mediaQueue.async { mediaCoordinator.dictationStarted() }
+        }
+        pipeline.onCaptureEnd = { [mediaQueue, mediaCoordinator] in
+            mediaQueue.async { mediaCoordinator.dictationEnded() }
+        }
         pipeline.onChange = { [weak self] in self?.afterSessionChange() }
         clock.observeAdvances { [weak self] in self?.afterSessionChange() }
         panelController.onButton = { [weak self] title in
@@ -193,6 +203,12 @@ final class AppModel: ObservableObject {
         UserDefaults.standard.set(on, forKey: AutoSendPolicy.enabledKey)
         let policy = AutoSendPolicy.load()
         work.async { [self] in insertion.autoSend = policy }
+    }
+
+    func setPauseMediaWhileDictating(_ on: Bool) {
+        pauseMediaWhileDictating = on
+        UserDefaults.standard.set(on, forKey: "pauseMediaWhileDictating")
+        mediaQueue.async { self.mediaCoordinator.enabled = on }
     }
 
     func toggleEnabled() {
