@@ -94,6 +94,14 @@ public final class GatewayCleaner {
         self.transport = transport
     }
 
+    /// Session owns the deadline as well as the HTTP request, so transports that
+    /// never call back cannot stall the sentence queue.
+    var timeout: Duration { .seconds(config.timeoutSeconds) }
+
+    func cleanSentence(_ raw: String, completion: @escaping (String?) -> Void) {
+        clean(raw, plugins: [], completion: completion)
+    }
+
     public func clean(_ raw: String, plugins: [PluginSpec] = [], completion: @escaping (String?) -> Void) {
         guard config.isValid else {
             completion(nil)

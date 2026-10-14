@@ -66,6 +66,13 @@ public final class Session: @unchecked Sendable {
     public private(set) var commandRequests: [CommandRequest] = []
     private var releaseFocuses: [Int: FocusSnapshot] = [:]
     private var gatewayJob: GatewayJob?
+    private var sentenceTracker: SentenceTracker?
+    private var backgroundJobs: [SentenceTracker.Revision: BackgroundJob] = [:]
+
+    private struct BackgroundJob {
+        let mailbox: GatewayJob
+        let due: Duration
+    }
 
     private var talkKeyDown = false
     private var capture: HoldCapture?
@@ -109,6 +116,8 @@ public final class Session: @unchecked Sendable {
         var allowSend = true
         var command: CommandMatch?
         var routed = false
+        var incremental: SentenceTracker.ReleasePlan?
+        var routesPlugins = true
     }
 
     private final class LLMJob {
@@ -252,6 +261,10 @@ public final class Session: @unchecked Sendable {
             hold.lastSpeechEnd = token.end
             capture = hold
             panelState = PanelState(isVisible: true, text: token.text)
+            if cleanupBackend == .gateway, gatewayCleaner != nil {
+                sentenceTracker?.update(token.text, isFinal: token.isFinal)
+                evaluateBackgroundCleanup()
+            }
             bufferWiped = false
             preRollMs = min(1500, max(preRollMs, 1))
             return
@@ -617,6 +630,8 @@ public final class Session: @unchecked Sendable {
         guard matchesTalkKey(side) else { return }
         guard othersDown.isEmpty else { return }
 
+        ignoreBackgroundCleanup()
+        if cleanupBackend == .gateway, gatewayCleaner != nil { sentenceTracker = SentenceTracker() }
         talkKeyDown = true
         pending = nil
         var blocked: String?
@@ -655,10 +670,12 @@ public final class Session: @unchecked Sendable {
         capture = nil
 
         if !latchOn || faulted || insertDisarmed {
+            ignoreBackgroundCleanup()
             panelState = .hidden
             return
         }
         if let blocked = hold.blockedMessage {
+            ignoreBackgroundCleanup()
             panelState = PanelState(isVisible: true, text: blocked)
             return
         }
@@ -671,6 +688,7 @@ public final class Session: @unchecked Sendable {
         if held < .milliseconds(300) || !hold.hasSpeech || Cleanup.isLoneMutter(hold.text)
             || (hold.hasSpeech && trailing >= .milliseconds(299))
         {
+            ignoreBackgroundCleanup()
             panelState = .hidden
             wipeBuffers()
             return
@@ -736,6 +754,8 @@ public final class Session: @unchecked Sendable {
         releaseTimes[generation] = releaseAt
         releaseFocuses[generation] = focus
         let raw = hold.text
+        let isLong = sentenceTracker?.isLong == true
+        let incremental = sentenceTracker?.releasePlan(raw: raw)
         let local = Cleanup.clean(raw)
         let focusShot = hold.focusAtDown
         releaseFocus = focusShot
@@ -779,12 +799,19 @@ public final class Session: @unchecked Sendable {
                 insert: false,
                 maxLengthNote: maxLength
             )
+            deferred?.incremental = incremental
+            deferred?.routesPlugins = !isLong
             panelState = PanelState(
                 isVisible: true,
                 text: maxLength ? MenuMessages.panelMaxLength : MenuMessages.panelCleaning
             )
-            gatewayCleaner.clean(raw, plugins: plugins) { [job] text in
-                job.complete(text)
+            let requestRaw = incremental?.raw ?? raw
+            if requestRaw.isEmpty {
+                job.complete("")
+            } else {
+                gatewayCleaner.clean(requestRaw, plugins: isLong ? [] : plugins) { [job] text in
+                    job.complete(text)
+                }
             }
             // A transport may finish synchronously. Pick that up before returning;
             // asynchronous replies are collected on this queue by the timer.
@@ -1144,11 +1171,55 @@ public final class Session: @unchecked Sendable {
         llmJob = nil
         gatewayJob?.ignore()
         gatewayJob = nil
+        ignoreBackgroundCleanup()
+    }
+
+    private func ignoreBackgroundCleanup() {
+        for job in backgroundJobs.values { job.mailbox.ignore() }
+        backgroundJobs.removeAll()
+        sentenceTracker = nil
+    }
+
+    private func evaluateBackgroundCleanup() {
+        guard talkKeyDown, let hold = capture, hold.blockedMessage == nil,
+              cleanupBackend == .gateway, let cleaner = gatewayCleaner,
+              let tracker = sentenceTracker else { return }
+        // Only mailboxes cross the transport boundary. Revision checks and panel
+        // updates happen here, on the same queue as all other Session events.
+        for (revision, job) in backgroundJobs {
+            if clock.now >= job.due {
+                job.mailbox.ignore()
+                backgroundJobs.removeValue(forKey: revision)
+            } else if case .completed(let reply) = job.mailbox.snapshot() {
+                if let reply, let accepted = acceptLLMResult(raw: revision.text, result: reply) {
+                    tracker.accept(accepted, for: revision)
+                }
+                job.mailbox.ignore()
+                backgroundJobs.removeValue(forKey: revision)
+            }
+        }
+        while backgroundJobs.count < 2, let revision = tracker.nextRevision {
+            tracker.markSent(revision)
+            let mailbox = GatewayJob(generation: commitGeneration)
+            backgroundJobs[revision] = BackgroundJob(mailbox: mailbox, due: clock.now + cleaner.timeout)
+            cleaner.cleanSentence(revision.text) { [mailbox] text in mailbox.complete(text) }
+            // Collect synchronous transports too, without waiting for another
+            // partial or using a transport callback to mutate Session.
+            if case .completed(let reply) = mailbox.snapshot() {
+                if let reply, let accepted = acceptLLMResult(raw: revision.text, result: reply) {
+                    tracker.accept(accepted, for: revision)
+                }
+                mailbox.ignore()
+                backgroundJobs.removeValue(forKey: revision)
+            }
+        }
+        if !hold.text.isEmpty { panelState = PanelState(isVisible: true, text: tracker.panelText) }
     }
 
     // MARK: - Timers
 
     private func evaluateTimers() {
+        evaluateBackgroundCleanup()
         if let deadline = pendingCloseDeadline, !latchOn, deviceStillOpenAfterOff {
             if clock.now >= deadline {
                 faulted = true
@@ -1254,7 +1325,7 @@ public final class Session: @unchecked Sendable {
     private func applyGatewayResultToDeferred(_ reply: String?) {
         guard var pendingCommit = deferred else { return }
         var output = reply
-        if let reply, !plugins.isEmpty {
+        if let reply, !plugins.isEmpty, pendingCommit.routesPlugins {
             pendingCommit.routed = true
             switch CommandRouter.parse(reply, plugins: plugins) {
             case .command(let match):
@@ -1270,8 +1341,14 @@ public final class Session: @unchecked Sendable {
                 output = text
             }
         }
-        let cleaned = output.flatMap { acceptLLMResult(raw: pendingCommit.raw, result: $0) }
-            ?? Cleanup.clean(pendingCommit.raw)
+        let cleaned: String
+        if let plan = pendingCommit.incremental {
+            let accepted = output.flatMap { acceptLLMResult(raw: plan.raw, result: $0) }
+            cleaned = plan.joined(reply: accepted)
+        } else {
+            cleaned = output.flatMap { acceptLLMResult(raw: pendingCommit.raw, result: $0) }
+                ?? Cleanup.clean(pendingCommit.raw)
+        }
         let resolved = resolveOutput(raw: pendingCommit.raw, cleaned: cleaned,
                                      focus: storedFocus(for: pendingCommit))
         pendingCommit.text = resolved.text
