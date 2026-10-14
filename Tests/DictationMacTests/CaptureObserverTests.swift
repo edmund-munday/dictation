@@ -100,6 +100,7 @@ final class CaptureObserverTests: XCTestCase {
         let h = try MacHarness()
         let plugin = try PluginSpec.parse(Data(#"{"name":"capture","description":"test","triggers":["take a screenshot"],"action":{"type":"exec","path":"/bin/echo"},"confirm_delay_s":0}"#.utf8))
         h.session.setPlugins([plugin])
+        h.session.setCleanupBackend(.gateway) // the local fast path (R236) applies to the gateway backend
         let audio = CountingAudio()
         let pipeline = makePipeline(h, audio: audio, transcript: "take a screenshot")
         var ends = 0
@@ -129,6 +130,7 @@ final class CaptureObserverTests: XCTestCase {
         let h = try MacHarness()
         let plugin = try PluginSpec.parse(Data(#"{"name":"capture","description":"test","triggers":["take a screenshot"],"action":{"type":"exec","path":"/bin/echo"},"confirm_delay_s":0}"#.utf8))
         h.session.setPlugins([plugin])
+        h.session.setCleanupBackend(.gateway) // the local fast path (R236) applies to the gateway backend
         let audio = CountingAudio()
         let pipeline = makePipeline(h, audio: audio, transcript: "take a screenshot")
         var ends = 0
