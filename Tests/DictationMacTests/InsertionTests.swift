@@ -53,6 +53,24 @@ final class MacInsertionTests: XCTestCase {
         board.releaseGlobally()
     }
 
+    func test_R238_noFocusedFieldCopyButtonCopiesText() throws {
+        let h = try MacHarness()
+        let board = NSPasteboard(name: NSPasteboard.Name("dictation-test-\(UUID().uuidString)"))
+        defer { board.releaseGlobally() }
+        let coordinator = InsertionCoordinator(
+            session: h.session, inserter: RecordingInserter(succeeds: false), pasteboard: board)
+        dictate(h, "hello there", focus: FocusSnapshot(timestamp: h.clock.now, role: .none, identity: .none))
+        h.clock.advance(by: .milliseconds(250))
+        coordinator.poll()
+
+        XCTAssertTrue(h.session.panel.isVisible)
+        XCTAssertEqual(h.session.panel.text, "No text field was focused.")
+        XCTAssertEqual(h.session.panel.buttons.map(\.title), ["Copy"])
+        XCTAssertEqual(h.session.panel.copyText, "Hello there.")
+        coordinator.tap(button: "Copy")
+        XCTAssertEqual(board.string(forType: .string), "Hello there.")
+    }
+
     func test_M12_secureFieldIsSkippedAndMicNeverOpens() throws {
         let h = try MacHarness()
         let inserter = RecordingInserter(succeeds: true)
