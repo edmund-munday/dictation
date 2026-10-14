@@ -11,3 +11,11 @@ final class FalseStartPromptTests: XCTestCase {
         XCTAssertTrue(p.contains("This is actually really fucking cool."), "swearing in the message stays")
     }
 }
+
+final class NoRestartAsidePromptTests: XCTestCase {
+    func test_R227_asidesWithoutARestartAreKept() {
+        let p = DictationCore.CleanupPrompt.text
+        XCTAssertTrue(p.contains("Output: Alright, so the build passed, which is great."))
+        XCTAssertTrue(p.lowercased().contains("only when"), "drop only on a genuine restart")
+    }
+}
