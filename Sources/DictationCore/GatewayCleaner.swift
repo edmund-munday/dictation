@@ -106,6 +106,7 @@ public final class GatewayCleaner {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         let body: [String: Any] = [
             "model": config.model,
+            "temperature": 0,
             "messages": [
                 ["role": "system", "content": CleanupPrompt.text],
                 ["role": "user", "content": raw],
