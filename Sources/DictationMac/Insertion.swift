@@ -59,8 +59,9 @@ public final class InsertionCoordinator {
     }
 
     public func tap(button title: String) {
+        let copyText = session.panel.copyText ?? pendingCopyText
         session.tapOverlayButton(title: title)
-        guard title == "Copy", let text = pendingCopyText else { return }
+        guard title == "Copy", let text = copyText else { return }
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
     }

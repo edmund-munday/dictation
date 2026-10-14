@@ -514,7 +514,8 @@ public final class Session: @unchecked Sendable {
         guard insertRequests.indices.contains(requestIndex) else { return }
         let failed = OverlayState(text: MenuMessages.insertFailed, buttons: [OverlayButton(title: "Copy")])
         overlayState = failed
-        panelState = PanelState(isVisible: true, text: MenuMessages.insertFailed, buttons: failed.buttons)
+        panelState = PanelState(isVisible: true, text: MenuMessages.insertFailed, buttons: failed.buttons,
+                                copyText: insertRequests[requestIndex].text)
     }
 
     public func reportInsertionSucceeded(for requestIndex: Int) {
@@ -1049,7 +1050,8 @@ public final class Session: @unchecked Sendable {
                 panel: PanelState(
                     isVisible: true,
                     text: MenuMessages.panelNoField,
-                    buttons: [OverlayButton(title: "Copy")]
+                    buttons: [OverlayButton(title: "Copy")],
+                    copyText: cleaned
                 ),
                 overlay: .empty,
                 insert: false
@@ -1072,7 +1074,8 @@ public final class Session: @unchecked Sendable {
                 panel: PanelState(
                     isVisible: true,
                     text: message,
-                    buttons: [OverlayButton(title: "Copy")]
+                    buttons: [OverlayButton(title: "Copy")],
+                    copyText: cleaned
                 ),
                 overlay: OverlayState(text: message, buttons: [OverlayButton(title: "Copy")]),
                 insert: false

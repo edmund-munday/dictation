@@ -54,19 +54,3 @@ public enum CleanupBackend: Sendable, Equatable {
     case localModel
     case off
 }
-
-// MARK: - Floating panel
-
-public struct PanelState: Sendable, Equatable {
-    public var isVisible: Bool
-    public var text: String?
-    public var buttons: [OverlayButton]
-
-    public init(isVisible: Bool = false, text: String? = nil, buttons: [OverlayButton] = []) {
-        self.isVisible = isVisible
-        self.text = text
-        self.buttons = buttons
-    }
-
-    public static let hidden = PanelState()
-}

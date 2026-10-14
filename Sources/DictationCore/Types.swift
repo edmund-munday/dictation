@@ -396,3 +396,21 @@ public struct UtteranceRecord: Sendable, Equatable {
     public var mode: String = "dictation"
     public var plugin: String?
 }
+
+// MARK: - Floating panel
+
+public struct PanelState: Sendable, Equatable {
+    public var isVisible: Bool
+    public var text: String?
+    public var buttons: [OverlayButton]
+    public var copyText: String?
+
+    public init(isVisible: Bool = false, text: String? = nil, buttons: [OverlayButton] = [], copyText: String? = nil) {
+        self.isVisible = isVisible
+        self.text = text
+        self.buttons = buttons
+        self.copyText = copyText
+    }
+
+    public static let hidden = PanelState()
+}
