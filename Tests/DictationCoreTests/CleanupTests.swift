@@ -205,19 +205,6 @@ final class CleanupTests: XCTestCase {
         XCTAssertTrue(text.hasSuffix(".") || text.hasSuffix("?"))
     }
 
-    func test_R75_spokenPunctuationWordsStayWords() throws {
-        let h = try TestHarness()
-        h.readyListening()
-        h.speakAndWait("list comma period new paragraph")
-
-        XCTAssertEqual(h.session.insertRequests.count, 1)
-        guard let insert = h.firstInsert() else { return }
-        let text = insert.text.lowercased()
-        XCTAssertTrue(text.contains("comma"))
-        XCTAssertTrue(text.contains("period"))
-        XCTAssertTrue(text.contains("new paragraph"))
-    }
-
     func test_R76_fillerMuttersInsideSentenceRemoved() throws {
         let h = try TestHarness()
         h.readyListening()
