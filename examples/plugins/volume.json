@@ -1,0 +1,10 @@
+{
+  "name": "volume",
+  "description": "Set the Mac's output volume: a level 0-100 (number or words), up, down, mute or unmute.",
+  "enabled": true,
+  "triggers": ["volume {level}", "set volume to {level}", "set the volume to {level}", "turn volume {level}", "turn the volume {level}", "mute", "unmute", "mute sound", "unmute sound"],
+  "args": {"level": {"type": "string", "required": false, "description": "0-100, a number word, up, down, max, half, mute or unmute"}},
+  "action": {"type": "exec", "path": "bin/volume.sh", "argv": []},
+  "timeout_s": 5,
+  "confirm_delay_s": 0
+}

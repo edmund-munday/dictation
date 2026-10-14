@@ -1,0 +1,11 @@
+{
+  "name": "media",
+  "description": "Control whatever is playing: play, pause, resume, next track, previous track (explicit commands, never a blind toggle unless 'play pause' was said).",
+  "enabled": true,
+  "triggers": ["play", "pause", "resume", "play music", "pause music", "resume music", "stop music", "next track", "next song", "skip track", "skip song", "previous track", "previous song", "last track", "play pause"],
+  "args": {},
+  "action": {"type": "exec", "path": "bin/media.sh", "argv": []},
+  "timeout_s": 5,
+  "confirm_delay_s": 0,
+  "manages_media": true
+}

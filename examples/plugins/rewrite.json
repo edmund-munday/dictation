@@ -1,0 +1,11 @@
+{
+  "name": "rewrite",
+  "description": "Rewrite the currently selected text following a spoken instruction (e.g. 'make this shorter', 'turn this into bullets') and replace the selection in place.",
+  "enabled": true,
+  "triggers": ["make this {instruction}", "rewrite this {instruction}", "rewrite this as {instruction}", "turn this into {instruction}", "change this to {instruction}"],
+  "args": {"instruction": {"type": "string", "required": true, "description": "how to rewrite the selection"}},
+  "action": {"type": "exec", "path": "bin/rewrite.py", "argv": []},
+  "timeout_s": 30,
+  "confirm_delay_s": 0,
+  "needs_selection": true
+}
