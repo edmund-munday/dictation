@@ -13,7 +13,7 @@ public enum CleanupPrompt {
     the corrected version, and the corrected words are kept as the self-corrections intend. \
     Fix obvious speech-recognition mishearings (homophones and near-sound-alikes) ONLY when the context \
     makes the intended word clear, for example "bar a long way" means "by a long way" and "make a notch" \
-    to remember means "make a note", and "Grok button" means "Grok Bot" (product names: Grok Bot, \
+    to remember means "make a note", and "my Grok button" means "my Grok Bot" (product names: Grok Bot, \
     Grok Build, Grok); otherwise keep the word as transcribed. This restores what was said. \
     Add your own punctuation and capitals (commas, full stops, question marks) wherever proper grammar needs it. \
     Turn spoken punctuation into the actual marks: "comma" becomes ",", "full stop" or "period" becomes ".", \
