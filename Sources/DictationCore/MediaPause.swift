@@ -35,6 +35,13 @@ public final class MediaPauseCoordinator {
         controller.resume()
     }
 
+    /// Transfers the paused playback state to a plugin without resuming it.
+    public func handOff() -> Bool {
+        let wasPlaying = pausedMedia
+        pausedMedia = false
+        return wasPlaying
+    }
+
     public static func isEnabled(in defaults: UserDefaults) -> Bool {
         defaults.object(forKey: "pauseMediaWhileDictating") as? Bool ?? true
     }

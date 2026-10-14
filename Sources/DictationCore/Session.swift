@@ -462,7 +462,12 @@ public final class Session: @unchecked Sendable {
     public func ingestPluginResult(for index: Int, output: PluginOutput) {
         guard commandRequests.indices.contains(index) else { return }
         let request = commandRequests[index]
-        if let text = output.insert, !text.isEmpty, let target = request.target {
+        if let text = output.replace {
+            if !text.isEmpty, let target = request.target {
+                insertRequests.append(InsertRequest(text: text, target: target, replacesSelection: true,
+                                                    autoSendAllowed: false))
+            }
+        } else if let text = output.insert, !text.isEmpty, let target = request.target {
             insertRequests.append(InsertRequest(text: text, target: target, replacesSelection: false,
                                                 autoSendAllowed: output.send ?? false))
         }
@@ -729,7 +734,7 @@ public final class Session: @unchecked Sendable {
         commitGeneration += 1
         let generation = commitGeneration
         releaseTimes[generation] = releaseAt
-        releaseFocuses[generation] = hold.focusAtDown
+        releaseFocuses[generation] = focus
         let raw = hold.text
         let local = Cleanup.clean(raw)
         let focusShot = hold.focusAtDown
@@ -1368,8 +1373,16 @@ public final class Session: @unchecked Sendable {
         }
         if let match = job.command, let plugin = plugins.first(where: { $0.name == match.plugin }) {
             recordUtterance(job, insertIndex: nil)
+            if plugin.needsSelection, (focusNow?.selectionLength ?? 0) <= 0 {
+                pendingCommand = nil
+                overlayState = .empty
+                panelState = PanelState(isVisible: true, text: "Select some text first.")
+                return
+            }
             let request = CommandRequest(plugin: plugin, args: match.args, transcript: job.raw,
-                                         target: focusNow?.identity ?? job.target)
+                                         target: focusNow.flatMap { $0.exists && $0.role != .none ? $0.identity : nil },
+                                         selectedText: !secure && (focusNow?.selectionLength ?? 0) > 0
+                                             ? focusNow?.selectedText : nil)
             let due = job.due + .seconds(plugin.confirmDelaySeconds)
             if clock.now >= due {
                 pendingCommand = nil

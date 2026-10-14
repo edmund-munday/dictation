@@ -64,6 +64,7 @@ public final class AccessibilityBridge: FocusProvider, TextInserter {
         let secure = role == .secureTextField || IsSecureEventInputEnabled()
 
         var selectionLength = 0
+        var selectedText: String?
         var lineBreak = false
         var preceding: Character?
         if !secure, let rangeValue: AXValue = copy(element, kAXSelectedTextRangeAttribute) {
@@ -82,12 +83,15 @@ public final class AccessibilityBridge: FocusProvider, TextInserter {
                 }
             }
         }
+        if !secure, selectionLength > 0, let text: String = copy(element, kAXSelectedTextAttribute) {
+            selectedText = String(text.prefix(20_000))
+        }
         let id = remember(element)
         return FocusSnapshot(
             timestamp: time, role: role, isSecureInput: secure, selectionLength: selectionLength,
             selectionContainsLineBreak: lineBreak, precedingCharacter: preceding,
             identity: FocusIdentity(pid: Int(pid), elementID: id, roleLabel: roleName),
-            exists: true)
+            exists: true, selectedText: selectedText)
     }
 
     /// Sets the selected text (inserting at the caret). Never sends key events, so Return is never pressed.

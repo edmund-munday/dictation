@@ -15,7 +15,7 @@ public final class HoldPipeline {
     public var onChange: (() -> Void)?
     /// Called once after the microphone successfully starts capturing.
     public var onCaptureStart: (() -> Void)?
-    /// Called once after capture stops, including cancellation by another key.
+    /// Called once after capture stops and the release reaches the session, or on cancellation.
     public var onCaptureEnd: (() -> Void)?
     public private(set) var isCapturing = false
 
@@ -77,23 +77,26 @@ public final class HoldPipeline {
     }
 
     private func end(_ event: TalkKeyEvent) {
+        let wasCapturing = isCapturing
         if isCapturing {
             let samples = audio.snapshot()
-            stopCapture()
+            stopCapture(notifyEnd: false)
             if let text = transcriber.transcribe(samples: samples, sampleRate: audio.sampleRate), !text.isEmpty {
                 ingest(text, final: true)
             }
+            session.ingestFocus(focus.currentFocus(at: clock.now))
         }
         session.ingestTalkKey(TalkKeyEvent(
             timestamp: clock.now, identity: event.identity, isDown: false,
             otherKeysAlreadyDown: event.otherKeysAlreadyDown))
+        if wasCapturing { onCaptureEnd?() }
     }
 
-    private func stopCapture() {
+    private func stopCapture(notifyEnd: Bool = true) {
         guard isCapturing else { return }
         audio.stop()
         isCapturing = false
-        onCaptureEnd?()
+        if notifyEnd { onCaptureEnd?() }
     }
 
     private func ingest(_ text: String, final: Bool) {

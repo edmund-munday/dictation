@@ -15,9 +15,13 @@ static void mediactl(void) {
     const char *command = getenv("DICTATION_MEDIA_CMD");
     if (command == NULL) return;
     const bool status = strcmp(command, "status") == 0;
-    const bool pause = strcmp(command, "pause") == 0;
-    const bool play = strcmp(command, "play") == 0;
-    if (!status && !pause && !play) {
+    int commandID = -1;
+    if (strcmp(command, "play") == 0) commandID = 0;
+    else if (strcmp(command, "pause") == 0) commandID = 1;
+    else if (strcmp(command, "toggle") == 0) commandID = 2;
+    else if (strcmp(command, "next") == 0) commandID = 4;
+    else if (strcmp(command, "previous") == 0) commandID = 5;
+    if (!status && commandID < 0) {
         puts("failed");
         fflush(stdout);
         return;
@@ -46,7 +50,7 @@ static void mediactl(void) {
     } else {
         SendCommand sendCommand = mediaRemote == NULL ? NULL :
             (SendCommand)dlsym(mediaRemote, "MRMediaRemoteSendCommand");
-        bool sent = sendCommand != NULL && sendCommand(pause ? 1 : 0, NULL);
+        bool sent = sendCommand != NULL && sendCommand(commandID, NULL);
         // MediaRemote needs time to deliver the command before Perl exits.
         usleep(150000);
         puts(sent ? "ok" : "failed");

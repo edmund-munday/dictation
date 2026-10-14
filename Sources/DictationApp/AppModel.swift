@@ -24,6 +24,7 @@ final class AppModel: ObservableObject {
     @Published var pluginList: [PluginSpec] = []
     @Published var pluginErrors: [String: String] = [:]
     private var commandsHandled = 0
+    private var commandsAtCaptureStart = 0
     private let pluginQueue = DispatchQueue(label: "dictation.plugins", qos: .userInitiated)
     private let mediaQueue = DispatchQueue(label: "dictation.media", qos: .userInitiated)
     private let mediaCoordinator = MediaPauseCoordinator(
@@ -92,10 +93,15 @@ final class AppModel: ObservableObject {
         try? BundledPlugins.install(into: PluginLoader.defaultDirectory)
         reloadPlugins()
         pipeline.beforeHold = { [weak self] in self?.refreshCallState() }
-        pipeline.onCaptureStart = { [mediaQueue, mediaCoordinator] in
+        pipeline.onCaptureStart = { [weak self, mediaQueue, mediaCoordinator] in
+            guard let self else { return }
+            self.commandsAtCaptureStart = self.session.commandRequests.count
             mediaQueue.async { mediaCoordinator.dictationStarted() }
         }
-        pipeline.onCaptureEnd = { [mediaQueue, mediaCoordinator] in
+        pipeline.onCaptureEnd = { [weak self, mediaQueue, mediaCoordinator] in
+            guard let self else { return }
+            let newCommands = self.session.commandRequests.dropFirst(self.commandsAtCaptureStart)
+            guard !newCommands.contains(where: { $0.plugin.managesMedia }) else { return }
             mediaQueue.async { mediaCoordinator.dictationEnded() }
         }
         pipeline.onChange = { [weak self] in self?.afterSessionChange() }
@@ -168,21 +174,39 @@ final class AppModel: ObservableObject {
                 context["frontmost_app"] = bundle
             }
             context["display_id"] = String(CGMainDisplayID())
-            pluginQueue.async { [weak self] in
-                let result = PluginRunner.run(request.plugin, args: request.args, context: context)
-                NSLog("Dictation plugin %@ exit %d", request.plugin.name, result.exitCode)
-                guard let self else { return }
-                self.work.async {
-                    if result.exitCode == 0 {
-                        self.session.ingestPluginResult(for: index, output: result.output ?? PluginOutput(insert: nil, notify: nil, send: nil))
-                    } else if result.exitCode == 2 {
-                        self.session.ingestPluginResult(for: index, output: PluginOutput(insert: request.transcript, notify: nil, send: false))
-                    } else {
-                        self.session.ingestPluginFailure(for: index, message: result.errorLine ?? "exit \(result.exitCode)")
+            if let selectedText = request.selectedText { context["selected_text"] = selectedText }
+            let commandContext = context
+            if request.plugin.managesMedia {
+                mediaQueue.async { [weak self, mediaCoordinator, pluginQueue] in
+                    let wasPlaying = mediaCoordinator.handOff()
+                    var mediaContext = commandContext
+                    mediaContext["media_was_playing"] = wasPlaying ? "1" : "0"
+                    let readyContext = mediaContext
+                    pluginQueue.async { [weak self] in
+                        self?.runCommand(request, index: index, context: readyContext)
                     }
-                    self.afterSessionChange()
+                }
+            } else {
+                pluginQueue.async { [weak self] in
+                    self?.runCommand(request, index: index, context: commandContext)
                 }
             }
+        }
+    }
+
+    /// On `pluginQueue`, after any media hand-off has finished.
+    private func runCommand(_ request: CommandRequest, index: Int, context: [String: String]) {
+        let result = PluginRunner.run(request.plugin, args: request.args, context: context)
+        NSLog("Dictation plugin %@ exit %d", request.plugin.name, result.exitCode)
+        work.async { [self] in
+            if result.exitCode == 0 {
+                session.ingestPluginResult(for: index, output: result.output ?? PluginOutput(insert: nil, notify: nil, send: nil))
+            } else if result.exitCode == 2 {
+                session.ingestPluginResult(for: index, output: PluginOutput(insert: request.transcript, notify: nil, send: false))
+            } else {
+                session.ingestPluginFailure(for: index, message: result.errorLine ?? "exit \(result.exitCode)")
+            }
+            afterSessionChange()
         }
     }
 

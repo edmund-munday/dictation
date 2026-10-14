@@ -39,6 +39,9 @@ public enum PluginRunner {
         }
         if let app = context["frontmost_app"] { env["DICTATION_APP_BUNDLE"] = app }
         if let display = context["display_id"] { env["DICTATION_DISPLAY_ID"] = display }
+        env["DICTATION_SELECTED_TEXT"] = context["selected_text"]
+        env["DICTATION_MEDIA_WAS_PLAYING"] = context["media_was_playing"]
+        env["DICTATION_APP_RESOURCES"] = Bundle.main.resourcePath
         process.environment = env
         let inPipe = Pipe(), outPipe = Pipe(), errPipe = Pipe()
         process.standardInput = inPipe

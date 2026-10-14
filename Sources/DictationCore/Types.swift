@@ -107,6 +107,7 @@ public struct FocusSnapshot: Sendable, Equatable {
     public var role: FieldRole
     public var isSecureInput: Bool
     public var selectionLength: Int
+    public var selectedText: String?
     public var selectionContainsLineBreak: Bool
     public var precedingCharacter: Character?
     public var identity: FocusIdentity
@@ -121,12 +122,14 @@ public struct FocusSnapshot: Sendable, Equatable {
         selectionContainsLineBreak: Bool = false,
         precedingCharacter: Character? = nil,
         identity: FocusIdentity,
-        exists: Bool = true
+        exists: Bool = true,
+        selectedText: String? = nil
     ) {
         self.timestamp = timestamp
         self.role = role
         self.isSecureInput = isSecureInput
         self.selectionLength = selectionLength
+        self.selectedText = selectedText
         self.selectionContainsLineBreak = selectionContainsLineBreak
         self.precedingCharacter = precedingCharacter
         self.identity = identity

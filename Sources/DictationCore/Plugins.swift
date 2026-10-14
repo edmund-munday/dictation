@@ -40,6 +40,8 @@ public struct PluginSpec: Codable, Equatable, Sendable {
     public var timeoutSeconds: Double
     /// R237: cancel window before running a command, in seconds.
     public var confirmDelaySeconds: Double
+    public var needsSelection: Bool
+    public var managesMedia: Bool
     /// Folder the file was loaded from; relative action paths resolve against it.
     public var directory: URL?
 
@@ -47,6 +49,8 @@ public struct PluginSpec: Codable, Equatable, Sendable {
         case name, description, enabled, triggers, args, context, action
         case timeoutSeconds = "timeout_s"
         case confirmDelaySeconds = "confirm_delay_s"
+        case needsSelection = "needs_selection"
+        case managesMedia = "manages_media"
     }
 
     public init(from decoder: Decoder) throws {
@@ -62,6 +66,8 @@ public struct PluginSpec: Codable, Equatable, Sendable {
         timeoutSeconds = min(max(t, 0.1), 120)
         let delay = try c.decodeIfPresent(Double.self, forKey: .confirmDelaySeconds) ?? 1.5
         confirmDelaySeconds = min(max(delay, 0), 10)
+        needsSelection = try c.decodeIfPresent(Bool.self, forKey: .needsSelection) ?? false
+        managesMedia = try c.decodeIfPresent(Bool.self, forKey: .managesMedia) ?? false
     }
 
     public static func parse(_ data: Data) throws -> PluginSpec {
@@ -260,10 +266,16 @@ public struct PluginOutput: Codable, Equatable, Sendable {
     public var insert: String?
     public var notify: String?
     public var send: Bool?
+    public var replace: String?
     public init(insert: String?, notify: String?, send: Bool?) {
+        self.init(insert: insert, notify: notify, send: send, replace: nil)
+    }
+
+    public init(insert: String?, notify: String?, send: Bool?, replace: String?) {
         self.insert = insert
         self.notify = notify
         self.send = send
+        self.replace = replace
     }
 
     public static func parse(stdout: String) -> PluginOutput {
@@ -280,4 +292,5 @@ public struct CommandRequest: Equatable, Sendable {
     public var args: [String: String]
     public var transcript: String
     public var target: FocusIdentity?
+    public var selectedText: String? = nil
 }
