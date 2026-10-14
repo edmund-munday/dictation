@@ -30,11 +30,52 @@ enum Cleanup {
 
     static func clean(_ raw: String) -> String {
         let converted = convertSpokenPunctuation(applyGrammar(raw))
+        if let list = numberedList(converted) { return list }
         // Punctuate each line on its own; line breaks are text, never a trailing Return.
         let lines = converted.components(separatedBy: "\n").map { line -> String in
             line.trimmingCharacters(in: .whitespaces).isEmpty ? "" : autoPunctuate(line)
         }
         return lines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static let listMarkers: [[String]] = [
+        ["one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"],
+        ["first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth"],
+    ]
+
+    /// R221: "lead in one a two b three c" -> "Lead in:\n1. A\n2. B\n3. C". Needs at least three
+    /// in-order markers with non-empty items, so ordinary numbers in sentences stay as they are.
+    private static func numberedList(_ text: String) -> String? {
+        guard !text.contains("\n") else { return nil }
+        let words = text.split(separator: " ", omittingEmptySubsequences: true).map(String.init)
+        let norm = words.map { $0.lowercased().trimmingCharacters(in: .punctuationCharacters) }
+        for markers in listMarkers {
+            guard let start = norm.firstIndex(of: markers[0]) else { continue }
+            var positions = [start]
+            var next = 1
+            var i = start + 1
+            while i < norm.count, next < markers.count {
+                if norm[i] == markers[next] { positions.append(i); next += 1 }
+                i += 1
+            }
+            guard positions.count >= 3 else { continue }
+            var items: [String] = []
+            for (k, pos) in positions.enumerated() {
+                let end = k + 1 < positions.count ? positions[k + 1] : words.count
+                let item = words[(pos + 1)..<end].joined(separator: " ")
+                    .trimmingCharacters(in: CharacterSet(charactersIn: ",.;: "))
+                if item.isEmpty { items = []; break }
+                items.append(item.prefix(1).uppercased() + item.dropFirst())
+            }
+            guard items.count >= 3 else { continue }
+            var lines: [String] = []
+            let lead = words[0..<start].joined(separator: " ")
+                .trimmingCharacters(in: CharacterSet(charactersIn: ",.;: "))
+            if !lead.isEmpty { lines.append(lead.prefix(1).uppercased() + lead.dropFirst() + ":") }
+            for (n, item) in items.enumerated() { lines.append("\(n + 1). \(item)") }
+            return lines.joined(separator: "\n")
+        }
+        return nil
     }
 
     /// Spoken punctuation becomes marks (R214): "comma" -> ",", "new paragraph" -> blank line, etc.
