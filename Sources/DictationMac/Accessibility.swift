@@ -10,11 +10,45 @@ public final class AccessibilityBridge: FocusProvider, TextInserter {
     private var order: [String] = []
     private var counter = 0
 
-    public init() {}
+    private var manualAccessibilityPIDs: Set<pid_t> = []
+
+    public init() {
+        // Electron/Chromium build their accessibility tree only when asked; ask as soon as an
+        // app becomes active so the focused field is readable by the time the talk key goes down.
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: nil
+        ) { [weak self] note in
+            if let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication {
+                self?.enableWebAccessibility(pid: app.processIdentifier)
+            }
+        }
+        if let front = NSWorkspace.shared.frontmostApplication { enableWebAccessibility(pid: front.processIdentifier) }
+    }
+
+    private func enableWebAccessibility(pid: pid_t) {
+        guard pid > 0, !manualAccessibilityPIDs.contains(pid) else { return }
+        manualAccessibilityPIDs.insert(pid)
+        let app = AXUIElementCreateApplication(pid)
+        AXUIElementSetAttributeValue(app, "AXManualAccessibility" as CFString, kCFBooleanTrue)
+    }
+
+    /// The system-wide focused element often fails (kAXErrorCannotComplete) on recent macOS,
+    /// so ask the frontmost app first and fall back to the system-wide element.
+    private func focusedElement() -> AXUIElement? {
+        if let front = NSWorkspace.shared.frontmostApplication {
+            let pid = front.processIdentifier
+            enableWebAccessibility(pid: pid)
+            let app = AXUIElementCreateApplication(pid)
+            if let el: AXUIElement = copy(app, kAXFocusedUIElementAttribute) { return el }
+            // Chromium may expose focus only below the focused window.
+            if let win: AXUIElement = copy(app, kAXFocusedWindowAttribute),
+               let el: AXUIElement = copy(win, kAXFocusedUIElementAttribute) { return el }
+        }
+        return copy(AXUIElementCreateSystemWide(), kAXFocusedUIElementAttribute)
+    }
 
     public func currentFocus(at time: Duration) -> FocusSnapshot {
-        let system = AXUIElementCreateSystemWide()
-        guard let element: AXUIElement = copy(system, kAXFocusedUIElementAttribute) else {
+        guard let element = focusedElement() else {
             return FocusSnapshot(timestamp: time, role: .none, identity: .none)
         }
         var pid: pid_t = 0
@@ -22,7 +56,8 @@ public final class AccessibilityBridge: FocusProvider, TextInserter {
         let bundle = NSRunningApplication(processIdentifier: pid)?.bundleIdentifier
         let roleName: String? = copy(element, kAXRoleAttribute)
         let subrole: String? = copy(element, kAXSubroleAttribute)
-        var role = FocusClassifier.role(axRole: roleName, subrole: subrole, bundleID: bundle)
+        var role = FocusClassifier.role(axRole: roleName, subrole: subrole, bundleID: bundle,
+                                        selectedTextSettable: isSettable(element, kAXSelectedTextAttribute))
         if role == .editableWebArea, !isSettable(element, kAXValueAttribute), !isSettable(element, kAXSelectedTextAttribute) {
             role = .none
         }

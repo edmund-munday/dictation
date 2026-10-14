@@ -52,7 +52,8 @@ public enum FocusClassifier {
         "com.apple.Terminal", "com.googlecode.iterm2", "dev.warp.Warp-Stable", "com.mitchellh.ghostty",
     ]
 
-    public static func role(axRole: String?, subrole: String?, bundleID: String?) -> FieldRole {
+    public static func role(axRole: String?, subrole: String?, bundleID: String?,
+                            selectedTextSettable: Bool = false) -> FieldRole {
         if subrole == "AXSecureTextField" { return .secureTextField }
         let editable: FieldRole
         switch axRole {
@@ -60,7 +61,11 @@ public enum FocusClassifier {
         case "AXTextArea": editable = .textArea
         case "AXComboBox": editable = .comboBox
         case "AXWebArea": editable = .editableWebArea
-        default: return .none
+        default:
+            // Electron/Chrome contenteditable often reports a generic role (AXGroup etc.)
+            // but exposes settable selected text: treat it as a multi-line area.
+            guard selectedTextSettable else { return .none }
+            editable = .textArea
         }
         if let bundleID, terminalBundles.contains(bundleID) { return .terminal }
         return editable
