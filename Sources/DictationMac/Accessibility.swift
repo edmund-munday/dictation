@@ -97,8 +97,18 @@ public final class AccessibilityBridge: FocusProvider, TextInserter {
         guard let _: String = copy(element, kAXRoleAttribute) else { return false }
         let subrole: String? = copy(element, kAXSubroleAttribute)
         if subrole == "AXSecureTextField" { return false }
+        var names: CFArray?
+        AXUIElementCopyAttributeNames(element, &names)
+        let isChromium = ((names as? [String]) ?? []).contains("ChromeAXNodeId")
+        if InsertionStrategy.method(isChromiumElement: isChromium) == .paste {
+            return InsertionStrategy.paste(text)
+        }
+        let before: String? = copy(element, kAXValueAttribute)
         if AXUIElementSetAttributeValue(element, kAXSelectedTextAttribute as CFString, text as CFString) == .success {
-            return true
+            let after: String? = copy(element, kAXValueAttribute)
+            if InsertionStrategy.didInsert(before: before, after: after, text: text) { return true }
+            // The write "succeeded" but nothing visibly changed: paste instead (R219).
+            return InsertionStrategy.paste(text)
         }
         // Fall back to rewriting the value around the selection.
         guard let value: String = copy(element, kAXValueAttribute),
