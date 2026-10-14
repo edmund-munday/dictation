@@ -47,6 +47,7 @@ public struct TalkKeyEvent: Sendable, Equatable {
 // MARK: - Cleanup backend
 
 public enum CleanupBackend: Sendable, Equatable {
+    case gateway
     case cursorCLI
     case claudeCLI
     case grokCLI

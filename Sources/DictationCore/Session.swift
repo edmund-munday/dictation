@@ -55,6 +55,8 @@ public final class Session: @unchecked Sendable {
     private var talkKeyChoice: TalkKeyChoice = .leftCommand
     private var cleanupBackend: CleanupBackend = .off
     private var cleanupExecutablePath: String?
+    private var gatewayCleaner: GatewayCleaner?
+    private var gatewayJob: GatewayJob?
 
     private var talkKeyDown = false
     private var capture: HoldCapture?
@@ -107,6 +109,43 @@ public final class Session: @unchecked Sendable {
 
         init(generation: Int) {
             self.generation = generation
+        }
+    }
+
+    /// Only this mailbox crosses the transport/session queue boundary. The HTTP
+    /// callback never reads or mutates Session, including its injected clock.
+    private final class GatewayJob: @unchecked Sendable {
+        enum State {
+            case pending
+            case completed(String?)
+            case ignored
+        }
+
+        let generation: Int
+        private let lock = NSLock()
+        private var state: State = .pending
+
+        init(generation: Int) {
+            self.generation = generation
+        }
+
+        func complete(_ text: String?) {
+            lock.lock()
+            defer { lock.unlock() }
+            guard case .pending = state else { return }
+            state = .completed(text)
+        }
+
+        func snapshot() -> State {
+            lock.lock()
+            defer { lock.unlock() }
+            return state
+        }
+
+        func ignore() {
+            lock.lock()
+            defer { lock.unlock() }
+            state = .ignored
         }
     }
 
@@ -398,6 +437,10 @@ public final class Session: @unchecked Sendable {
         cleanupExecutablePath = executablePath
     }
 
+    public func setGatewayCleaner(_ cleaner: GatewayCleaner?) {
+        gatewayCleaner = cleaner
+    }
+
     public func setTalkKey(_ choice: TalkKeyChoice) {
         talkKeyChoice = choice
     }
@@ -626,6 +669,8 @@ public final class Session: @unchecked Sendable {
     }
 
     private func finishUtterance(hold: HoldCapture, releaseAt: Duration, maxLength: Bool) {
+        gatewayJob?.ignore()
+        gatewayJob = nil
         commitGeneration += 1
         let generation = commitGeneration
         let raw = hold.text
@@ -633,7 +678,37 @@ public final class Session: @unchecked Sendable {
         let focusShot = hold.focusAtDown
         releaseFocus = focusShot
 
-        if cleanupBackend != .off, let path = cleanupExecutablePath, !path.isEmpty,
+        if cleanupBackend == .gateway, let gatewayCleaner {
+            ignoreRunningLLM()
+            let job = GatewayJob(generation: generation)
+            gatewayJob = job
+            deferred = DeferredCommit(
+                due: releaseAt + .seconds(3),
+                generation: generation,
+                raw: raw,
+                text: nil,
+                target: focusShot?.identity,
+                replacesSelection: false,
+                strippedNewline: false,
+                panel: .hidden,
+                overlay: .empty,
+                insert: false,
+                maxLengthNote: maxLength
+            )
+            panelState = PanelState(
+                isVisible: true,
+                text: maxLength ? MenuMessages.panelMaxLength : MenuMessages.panelCleaning
+            )
+            gatewayCleaner.clean(raw) { [job] text in
+                job.complete(text)
+            }
+            // A transport may finish synchronously. Pick that up before returning;
+            // asynchronous replies are collected on this queue by the timer.
+            evaluateTimers()
+            return
+        }
+
+        if cleanupBackend != .gateway, cleanupBackend != .off, let path = cleanupExecutablePath, !path.isEmpty,
            cleanupBackend != .localModel || cleanupExecutablePath != nil
         {
             if cleanupBackend == .localModel && (cleanupExecutablePath ?? "").isEmpty {
@@ -971,6 +1046,8 @@ public final class Session: @unchecked Sendable {
     private func ignoreRunningLLM() {
         llmJob?.ignored = true
         llmJob = nil
+        gatewayJob?.ignore()
+        gatewayJob = nil
     }
 
     // MARK: - Timers
@@ -996,6 +1073,23 @@ public final class Session: @unchecked Sendable {
             talkKeyDown = false
             capture = nil
             finishUtterance(hold: snapshot, releaseAt: snapshot.startedAt + .seconds(120), maxLength: true)
+        }
+
+        if let job = gatewayJob, let pendingCommit = deferred,
+           pendingCommit.generation == job.generation, pendingCommit.text == nil {
+            if clock.now >= pendingCommit.due {
+                job.ignore()
+                gatewayJob = nil
+                if !llmTimeoutNoted {
+                    showLLMTimeout = true
+                    llmTimeoutNoted = true
+                }
+                applyGatewayResultToDeferred(nil)
+            } else if case .completed(let text) = job.snapshot() {
+                job.ignore()
+                gatewayJob = nil
+                applyGatewayResultToDeferred(text)
+            }
         }
 
         if let job = llmJob, !job.ignored, !job.finished, let process = job.process, !process.isRunning {
@@ -1053,6 +1147,23 @@ public final class Session: @unchecked Sendable {
     private func focusForDeferred(_ job: DeferredCommit) -> FocusSnapshot? {
         _ = job
         return releaseFocus
+    }
+
+    private func applyGatewayResultToDeferred(_ output: String?) {
+        guard var pendingCommit = deferred else { return }
+        let cleaned = output.flatMap { acceptLLMResult(raw: pendingCommit.raw, result: $0) }
+            ?? Cleanup.clean(pendingCommit.raw)
+        let resolved = resolveOutput(raw: pendingCommit.raw, cleaned: cleaned,
+                                     focus: storedFocus(for: pendingCommit))
+        pendingCommit.text = resolved.text
+        pendingCommit.target = resolved.target
+        pendingCommit.replacesSelection = resolved.replaces
+        pendingCommit.strippedNewline = resolved.strippedNewline
+        pendingCommit.panel = resolved.panel
+        pendingCommit.overlay = resolved.overlay
+        pendingCommit.insert = resolved.insert
+        pendingCommit.due = min(pendingCommit.due, clock.now)
+        deferred = pendingCommit
     }
 
     private func applyLLMJobToDeferred(_ job: LLMJob) {

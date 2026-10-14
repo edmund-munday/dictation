@@ -9,7 +9,7 @@ final class AppModel: ObservableObject {
     @Published var statusSymbol = "mic.slash"
     @Published var menuTitle = "Dictation Off"
     @Published var coreMenuText = ""
-    @Published var cleanupLabel = "Cleanup: choosing…"
+    @Published var cleanupLabel = "Cleanup: local rules"
     @Published var speechLabel = ""
     @Published var permissions = PermissionReport(granted: [], needsSpeechRecognition: false)
     @Published var tapRunning = false
@@ -53,13 +53,21 @@ final class AppModel: ObservableObject {
         speechLabel = "Speech: " + transcriber.name
 
         let report = PermissionProbe.current(needsSpeechRecognition: usesAppleSpeech)
+        let gatewayConfig = GatewayConfig.load(from: GatewayConfig.defaultPath)
+        let cleanupSelection = CleanupSelection.defaultSelection(gatewayConfig: gatewayConfig)
+        cleanupLabel = cleanupSelection.menuLabel
         permissions = report
         work.sync {
             session.setOnDeviceRecognizerAvailable(available)
             session.setSystemRecognizerReportsOnDevice(true)
             session.setBundledModelLoadable(!usesAppleSpeech)
             session.setTalkKey(.leftCommand)
-            session.setCleanupBackend(.localModel)
+            if let gatewayConfig {
+                session.setGatewayCleaner(GatewayCleaner(config: gatewayConfig))
+                session.setCleanupBackend(.gateway)
+            } else {
+                session.setCleanupBackend(.localModel)
+            }
             applyPermissions(report)
             toggle.setEnabled(true)
         }
@@ -70,7 +78,6 @@ final class AppModel: ObservableObject {
             self?.work.async { self?.insertion.tap(button: title) }
         }
         startTap()
-        chooseCleanup(support: support)
         publish()
     }
 
