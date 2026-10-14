@@ -110,7 +110,7 @@ public final class GatewayCleaner {
                 ["role": "system", "content": CleanupPrompt.text],
                 ["role": "user", "content": raw],
             ],
-            "max_output_tokens": 2_048,
+            "max_output_tokens": 600,
             "timeout_ms": Int(config.timeoutSeconds * 1_000),
             "tool_tag": "dictation:cleanup",
         ]
