@@ -29,8 +29,32 @@ enum Cleanup {
     }
 
     static func clean(_ raw: String) -> String {
-        let punctuated = applyGrammar(raw)
-        return autoPunctuate(punctuated)
+        let converted = convertSpokenPunctuation(applyGrammar(raw))
+        // Punctuate each line on its own; line breaks are text, never a trailing Return.
+        let lines = converted.components(separatedBy: "\n").map { line -> String in
+            line.trimmingCharacters(in: .whitespaces).isEmpty ? "" : autoPunctuate(line)
+        }
+        return lines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Spoken punctuation becomes marks (R214): "comma" -> ",", "new paragraph" -> blank line, etc.
+    private static let spokenMarks: [(NSRegularExpression, String)] = [
+        (#"\s*\bnew\s+paragraph\b[ \t]*"#, "\n\n"),
+        (#"\s*\bnew\s+line\b[ \t]*"#, "\n"),
+        (#"\s*\b(?:full\s+stop|period)\b"#, "."),
+        (#"\s*\bquestion\s+mark\b"#, "?"),
+        (#"\s*\bexclamation\s+mark\b"#, "!"),
+        (#"\s*\bcomma\b"#, ","),
+    ].map { (try! NSRegularExpression(pattern: $0.0, options: .caseInsensitive), $0.1) }
+
+    private static func convertSpokenPunctuation(_ text: String) -> String {
+        var out = text
+        for (pattern, mark) in spokenMarks {
+            let range = NSRange(out.startIndex..<out.endIndex, in: out)
+            out = pattern.stringByReplacingMatches(
+                in: out, range: range, withTemplate: NSRegularExpression.escapedTemplate(for: mark))
+        }
+        return out
     }
 
     /// Whether `result` is a legal rewrite of `spoken` under R70–R72.
@@ -296,6 +320,13 @@ enum Cleanup {
         // Capitalise sentence start.
         if let first = words[0].first, first.isLetter {
             words[0] = words[0].prefix(1).uppercased() + words[0].dropFirst()
+        }
+
+        // Capitalise the word after a sentence-ending mark.
+        for i in words.indices.dropFirst() {
+            if let end = words[i - 1].last, ".?!".contains(end), let first = words[i].first, first.isLetter {
+                words[i] = words[i].prefix(1).uppercased() + words[i].dropFirst()
+            }
         }
 
         for i in words.indices {

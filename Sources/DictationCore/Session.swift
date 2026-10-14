@@ -63,11 +63,6 @@ public final class Session: @unchecked Sendable {
     private var deferred: DeferredCommit?
     private var llmJob: LLMJob?
     private static let llmSynchronousGrace: TimeInterval = 2.5
-    private static let spokenPunctuationPatterns: [NSRegularExpression] = [
-        #"\bcomma\b"#, #"\bfull\s+stop\b"#, #"\bperiod\b"#,
-        #"\bquestion\s+mark\b"#, #"\bexclamation\s+mark\b"#,
-        #"\bnew\s+line\b"#, #"\bnew\s+paragraph\b"#,
-    ].map { try! NSRegularExpression(pattern: $0, options: .caseInsensitive) }
     private var commitGeneration = 0
 
     private struct PendingUtterance {
@@ -877,14 +872,6 @@ public final class Session: @unchecked Sendable {
         if text.count > raw.count * 2 + 40 { return nil }
         let lower = text.lowercased()
         if lower.hasPrefix("here is") || lower.hasPrefix("sure") { return nil }
-        // Gateway and CLI rewrites must preserve every spoken punctuation phrase.
-        let rawRange = NSRange(raw.startIndex..<raw.endIndex, in: raw)
-        let resultRange = NSRange(text.startIndex..<text.endIndex, in: text)
-        for pattern in Self.spokenPunctuationPatterns {
-            let rawCount = pattern.numberOfMatches(in: raw, range: rawRange)
-            let resultCount = pattern.numberOfMatches(in: text, range: resultRange)
-            if resultCount < rawCount { return nil }
-        }
         return text
     }
 
