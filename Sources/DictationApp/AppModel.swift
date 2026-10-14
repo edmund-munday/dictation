@@ -1,4 +1,7 @@
+import AVFoundation
 import AppKit
+import ApplicationServices
+import CoreGraphics
 import DictationCore
 import DictationMac
 import Foundation
@@ -79,6 +82,29 @@ final class AppModel: ObservableObject {
         }
         startTap()
         publish()
+        requestMissingPermissions()
+    }
+
+    /// Asks macOS for permissions that are still undecided so the system prompts appear
+    /// (the probe never prompts, and the mic gate blocks the hold before audio starts).
+    private func requestMissingPermissions() {
+        if AVCaptureDevice.authorizationStatus(for: .audio) == .notDetermined {
+            AVCaptureDevice.requestAccess(for: .audio) { [weak self] _ in
+                DispatchQueue.main.async { self?.refreshPermissions() }
+            }
+        }
+        if !CGPreflightListenEventAccess() { _ = CGRequestListenEventAccess() }
+        if !AXIsProcessTrusted() {
+            let opts = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+            _ = AXIsProcessTrustedWithOptions(opts)
+        }
+        // Pick up grants made in System Settings without a relaunch.
+        Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] t in
+            guard let self else { t.invalidate(); return }
+            let before = self.permissions
+            self.refreshPermissions()
+            if self.permissions.missing.isEmpty && before.missing.isEmpty { t.invalidate() }
+        }
     }
 
     // MARK: Actions

@@ -27,5 +27,17 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 </dict>
 </plist>
 PLIST
-codesign --force --sign - "$APP" >/dev/null 2>&1 || echo "warning: ad-hoc codesign failed"
+# Sign with a stable local identity when available so TCC grants survive rebuilds
+# (ad-hoc signatures change cdhash every build). Override with DICTATION_SIGN_ID.
+SIGN_ID="${DICTATION_SIGN_ID:-}"
+if [ -z "$SIGN_ID" ]; then
+  for c in "Dictation Local Code Signing" "Snip Local Code Signing"; do
+    if security find-identity -v -p codesigning 2>/dev/null | grep -q "\"$c\""; then SIGN_ID="$c"; break; fi
+  done
+fi
+if [ -n "$SIGN_ID" ]; then
+  codesign --force --sign "$SIGN_ID" "$APP" >/dev/null 2>&1 || { echo "warning: signing with $SIGN_ID failed; using ad-hoc"; codesign --force --sign - "$APP" >/dev/null 2>&1; }
+else
+  codesign --force --sign - "$APP" >/dev/null 2>&1 || echo "warning: ad-hoc codesign failed"
+fi
 echo "Built $APP"
