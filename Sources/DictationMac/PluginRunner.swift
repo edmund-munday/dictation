@@ -85,7 +85,8 @@ public enum BundledPlugins {
       "triggers": ["test echo {text}", "plugin echo {text}"],
       "args": {"text": {"type": "string", "required": true, "description": "text to echo back"}},
       "action": {"type": "exec", "path": "bin/echo.sh", "argv": []},
-      "timeout_s": 5
+      "timeout_s": 5,
+      "confirm_delay_s": 0
     }
     """
     static let screenshotJSON = """
@@ -96,7 +97,8 @@ public enum BundledPlugins {
       "triggers": ["take a screenshot", "take a screenshot of {subject}", "grab a screenshot", "grab a screenshot of {subject}", "screenshot this", "screenshot the {subject}"],
       "args": {"subject": {"type": "string", "required": false, "description": "what to capture, e.g. the error dialog"}},
       "action": {"type": "exec", "path": "bin/screenshot.sh", "argv": []},
-      "timeout_s": 15
+      "timeout_s": 15,
+      "confirm_delay_s": 0
     }
     """
     // JSON-escape via zsh parameter expansion; no python/jq dependency.

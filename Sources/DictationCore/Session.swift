@@ -716,16 +716,45 @@ public final class Session: @unchecked Sendable {
     }
 
     private func finishUtterance(hold: HoldCapture, releaseAt: Duration, maxLength: Bool) {
+        guard !isSecureFocus, !(hold.focusAtDown.map(Self.isSecure) ?? false) else {
+            ignoreRunningLLM()
+            deferred = nil
+            panelState = PanelState(isVisible: true, text: MenuMessages.secure)
+            wipeBuffers()
+            return
+        }
         gatewayJob?.ignore()
         gatewayJob = nil
         commitGeneration += 1
         let generation = commitGeneration
         releaseTimes[generation] = releaseAt
-        releaseFocuses[generation] = releaseFocus ?? hold.focusAtDown
+        releaseFocuses[generation] = hold.focusAtDown
         let raw = hold.text
         let local = Cleanup.clean(raw)
         let focusShot = hold.focusAtDown
         releaseFocus = focusShot
+
+        if cleanupBackend == .gateway, !plugins.isEmpty,
+           let match = TriggerMatcher.match(raw, plugins: plugins) {
+            ignoreRunningLLM()
+            deferred = nil
+            apply(DeferredCommit(
+                due: releaseAt,
+                generation: generation,
+                raw: raw,
+                text: nil,
+                target: focusShot?.identity,
+                replacesSelection: false,
+                strippedNewline: false,
+                panel: .hidden,
+                overlay: .empty,
+                insert: false,
+                maxLengthNote: maxLength,
+                command: match,
+                routed: true
+            ))
+            return
+        }
 
         if cleanupBackend == .gateway, let gatewayCleaner {
             ignoreRunningLLM()
@@ -1222,7 +1251,11 @@ public final class Session: @unchecked Sendable {
             switch CommandRouter.parse(reply, plugins: plugins) {
             case .command(let match):
                 pendingCommit.command = match
-                pendingCommit.due = min(pendingCommit.due, clock.now)
+                // Keep a short cleanup interval for cancellable gateway commands,
+                // even with a synchronous reply. Zero-delay commands skip it.
+                let released = releaseTimes[pendingCommit.generation] ?? clock.now
+                let delay = plugins.first(where: { $0.name == match.plugin })?.confirmDelaySeconds ?? 1.5
+                pendingCommit.due = delay == 0 ? clock.now : max(clock.now, released + .milliseconds(250))
                 deferred = pendingCommit
                 return
             case .dictation(let text):
@@ -1332,9 +1365,15 @@ public final class Session: @unchecked Sendable {
         }
         if let match = job.command, let plugin = plugins.first(where: { $0.name == match.plugin }) {
             recordUtterance(job, insertIndex: nil)
-            pendingCommand = (CommandRequest(plugin: plugin, args: match.args, transcript: job.raw,
-                                             target: focusNow?.identity ?? job.target),
-                              clock.now + .milliseconds(1500))
+            let request = CommandRequest(plugin: plugin, args: match.args, transcript: job.raw,
+                                         target: focusNow?.identity ?? job.target)
+            let due = job.due + .seconds(plugin.confirmDelaySeconds)
+            if clock.now >= due {
+                pendingCommand = nil
+                commandRequests.append(request)
+            } else {
+                pendingCommand = (request, due)
+            }
             overlayState = .empty
             panelState = PanelState(isVisible: true, text: "Running: \(plugin.name)")
             return

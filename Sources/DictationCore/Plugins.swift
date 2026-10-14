@@ -38,12 +38,15 @@ public struct PluginSpec: Codable, Equatable, Sendable {
     public var context: [String]
     public var action: PluginAction
     public var timeoutSeconds: Double
+    /// R237: cancel window before running a command, in seconds.
+    public var confirmDelaySeconds: Double
     /// Folder the file was loaded from; relative action paths resolve against it.
     public var directory: URL?
 
     enum CodingKeys: String, CodingKey {
         case name, description, enabled, triggers, args, context, action
         case timeoutSeconds = "timeout_s"
+        case confirmDelaySeconds = "confirm_delay_s"
     }
 
     public init(from decoder: Decoder) throws {
@@ -57,6 +60,8 @@ public struct PluginSpec: Codable, Equatable, Sendable {
         action = try c.decode(PluginAction.self, forKey: .action)
         let t = try c.decodeIfPresent(Double.self, forKey: .timeoutSeconds) ?? 10
         timeoutSeconds = min(max(t, 0.1), 120)
+        let delay = try c.decodeIfPresent(Double.self, forKey: .confirmDelaySeconds) ?? 1.5
+        confirmDelaySeconds = min(max(delay, 0), 10)
     }
 
     public static func parse(_ data: Data) throws -> PluginSpec {
@@ -159,8 +164,11 @@ public enum TriggerMatcher {
     }
 
     public static func match(_ transcript: String, plugins: [PluginSpec]) -> CommandMatch? {
-        let said = words(transcript)
+        let fillers: Set<String> = ["um", "umm", "uh", "uhh", "er", "erm", "ah", "hmm",
+                                    "so", "okay", "ok", "well", "hey"]
+        let said = Array(words(transcript).drop(while: { fillers.contains($0) }))
         var best: (Int, CommandMatch)?
+        var matchingPlugins: Set<String> = []
         for plugin in plugins where plugin.enabled {
             for template in plugin.triggers {
                 var t = words(template)
@@ -180,10 +188,13 @@ public enum TriggerMatcher {
                 guard let args = plugin.validated(given) else { continue }
                 if best == nil || t.count > best!.0 {
                     best = (t.count, CommandMatch(plugin: plugin.name, args: args, confidence: 1))
+                    matchingPlugins = [plugin.name]
+                } else if t.count == best!.0 {
+                    matchingPlugins.insert(plugin.name)
                 }
             }
         }
-        return best?.1
+        return matchingPlugins.count == 1 ? best?.1 : nil
     }
 }
 
