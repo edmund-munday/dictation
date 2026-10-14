@@ -8,7 +8,7 @@
 
 ## Test harness
 - **Linux (worker, primary CI):** `swift test` on `DictationCore` through its public `Session` API with a `FakeClock`, scripted recognizer/VAD/focus event streams, and a fake CLI executable (a shell script) for R80/R81/R90–R93. Property tests for R70–R72 over a phrase corpus. Covers about 75% of R-IDs (every one marked L).
-- **Mac (240b44e3):** XCTest/XCUITest target driving a test host app with known fields (NSTextField, NSTextView, secure field, WKWebView), plus Terminal/Chrome via AX. Audio is fed from recorded WAVs through a virtual input device (BlackHole) for end-to-end and latency (R52, R27, R32, R60). Permission and locked-down cases (R95–R103) run on a fresh macOS user or VM with permissions withheld; R12/R26/R102 use a scripted manual checklist (M*).
+- **Mac (240b44e3):** XCTest targets (`DictationMacTests`) driving the app's own handlers (no XCUITest, GUI automation or virtual devices, per the 2026-10-14 test policy). Audio for end-to-end and latency tests (R52, R27, R32, R60) is recorded WAV fixtures fed straight into the app's audio-input handler (the `AudioSource`/`HoldPipeline` path), replacing the earlier XCUITest + BlackHole virtual input plan. Insertion is checked through the Accessibility bridge on known fields. Permission and locked-down cases (R95–R103) run on a fresh macOS user or VM with permissions withheld; R12/R26/R102 use a scripted manual checklist (M*).
 - Each test name carries its R-ID; a script checks that every R-ID has a test and every test has an R-ID.
 
 ## Mac-only parts
