@@ -110,7 +110,7 @@ private final class ReplayedWAVAudio: AudioSource {
 private final class LatencyBenchFocus: FocusProvider {
     func currentFocus(at time: Duration) -> FocusSnapshot {
         FocusSnapshot(timestamp: time, role: .textField,
-                      identity: FocusIdentity(pid: ProcessInfo.processInfo.processIdentifier,
+                      identity: FocusIdentity(pid: Int(ProcessInfo.processInfo.processIdentifier),
                                               elementID: "latency-bench-field"))
     }
 }
