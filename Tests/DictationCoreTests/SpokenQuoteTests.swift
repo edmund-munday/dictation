@@ -7,10 +7,13 @@ import XCTest
 final class SpokenQuoteTests: XCTestCase {
     private final class Capture: GatewayHTTPTransport {
         let reply: String
+        /// The user message (transcript) of each request; the system prompt is excluded.
         var bodies: [String] = []
         init(reply: String) { self.reply = reply }
         func send(_ request: URLRequest, completion: @escaping (Result<(Data, Int), Error>) -> Void) {
-            bodies.append(String(data: request.httpBody ?? Data(), encoding: .utf8) ?? "")
+            let json = (try? JSONSerialization.jsonObject(with: request.httpBody ?? Data())) as? [String: Any]
+            let messages = json?["messages"] as? [[String: Any]] ?? []
+            bodies.append(messages.last(where: { $0["role"] as? String == "user" })?["content"] as? String ?? "")
             completion(.success((try! JSONSerialization.data(withJSONObject: ["text": reply]), 200)))
         }
     }
