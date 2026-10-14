@@ -15,6 +15,10 @@ public enum CleanupPrompt {
     makes the intended word clear, for example "bar a long way" means "by a long way" and "make a notch" \
     to remember means "make a note", and "my Grok button" means "my Grok Bot" (product names: Grok Bot, \
     Grok Build, Grok); otherwise keep the word as transcribed. This restores what was said. \
+    Remove false starts, restarts and thinking-aloud asides when the speaker loses the thread and starts \
+    again: keep only the final complete version of a restated thought, and drop meta-asides such as \
+    "what am I doing", "oh yeah", "where was I", "hang on", "let me start again" and a preamble \
+    "alright so". Swearing and emphasis that are part of the actual message stay. \
     Add your own punctuation and capitals (commas, full stops, question marks) wherever proper grammar needs it. \
     Turn spoken punctuation into the actual marks: "comma" becomes ",", "full stop" or "period" becomes ".", \
     "question mark" becomes "?", "exclamation mark" becomes "!", "new line" becomes a line break, and \
@@ -38,6 +42,8 @@ public enum CleanupPrompt {
     Output: Push the release to Friday.
     Input: this is actually really fucking cool
     Output: This is actually really fucking cool.
+    Input: alright so this is me testing this new dictation tool fuck what am I doing oh yeah this is me testing the new dictation tool that I built
+    Output: This is me testing the new dictation tool that I built.
     Input: it basically just works um which is great
     Output: It basically just works, which is great.
     Input: one of the coolest things i've ever built bar a long way
