@@ -8,11 +8,15 @@ short-dictation) real whisper-cli (small.en q5_1, vocab prompt) output on growin
   whisper-cli timestamped output (`[hh:mm:ss.mmm --> hh:mm:ss.mmm]  text`); annotations ([BLANK_AUDIO], (wind))
   are dropped as today; the plain text equals today's parseOutput of the same run. Pass: recorded `final_stdout`
   of each fixture parses to the recorded segments and the same text as `-nt` output joined.
-- R259 Stability: replaying the recorded partials of long-dictation / long-plain / long-scratch through the
-  tracker yields a stable prefix that (a) only contains whole sentences, (b) each was unchanged in text and end
-  time across >= 2 consecutive partials, (c) is a prefix of the next partials' text, and (d) has an audio end
-  offset equal to the end time of its last segment. A sentence that changes resets its stability and everything
-  after it. short-dictation never yields a stable prefix before release.
+- R259 Stability: a sentence boundary is the end of a whisper segment whose text ends in `.`, `?` or `!`. A
+  boundary is stable once the text up to it (normalised: case, whitespace) and its end time (within 0.15 s) are
+  the same in >= 2 consecutive partials. The stable prefix is the text up to the last stable boundary plus that
+  boundary's audio offset. Once found, it is kept while each later partial's text still starts with it
+  (normalised), even if whisper re-segments (e.g. long-dictation's late partials collapse into one 0-30 s
+  segment); if a later partial's text no longer starts with it, it is dropped and recomputed. Pass, replaying
+  the recorded partials of `whisper-segments.json`: long-dictation, long-plain and long-scratch each end with a
+  stable prefix made of whole sentences that is a prefix of the recorded final text, with an offset equal to a
+  recorded segment end of that boundary; short-dictation ends with none.
 - R260 Release on a long hold with a stable prefix (setting on): the pipeline runs whisper once on release, on
   audio starting at (stable offset - overlap, overlap 0.3-1.0 s) only, with prompt = vocabulary hint followed by
   the stable prefix text; the final transcript ingested is prefix + tail with duplicated boundary words removed
