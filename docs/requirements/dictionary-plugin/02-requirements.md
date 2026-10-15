@@ -13,7 +13,7 @@ capital B-O-T."; dict-5 "remove word K A Z E Y." -> "Remove word K-A-Z-E-Y."; di
   en, oh, pee, cue/queue, ar, es/ess, tee/tea, you, vee, double-u, ex, why, zed/zee) add a letter; "double x"
   adds x twice; "capital x" adds X; "space" starts a new word; "all caps" uppercases the next word; "lowercase"
   keeps the next word lowercase. Words without markers: first letter upper, rest lower. A run of letters already
-  joined ("kazey" from a normaliser) is accepted as that word. Any other token -> nil. Pass: "K-A-Z-E-Y" ->
+  joined ("kazey" from a normaliser, or "GROK" as whisper writes it without the vocabulary prompt) is accepted as that word; "capital GROK" -> "Grok". Any other token -> nil. Pass: "K-A-Z-E-Y" ->
   "Kazey"; "K, A, Z, E, Y" -> "Kazey"; "K. A. Z. E. Y." -> "Kazey"; "capital T-E-S-S-A" -> "Tessa"; "M O double
   S" -> "Moss"; "capital G-R-O-K space capital B-O-T" -> "Grok Bot"; "all caps A P I" -> "API"; "lowercase S C R
   I P T" -> "script"; "kay ay zed ee why" -> "Kazey"; "K A banana" -> nil.
