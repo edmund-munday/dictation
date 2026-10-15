@@ -1,0 +1,22 @@
+{
+ "snip-1": {
+  "spoken": "take a screenshot of the Slack window.",
+  "whisper": "Take a screenshot of the Slack window.",
+  "model": "ggml-small.en-q5_1"
+ },
+ "snip-2": {
+  "spoken": "take a screenshot of this.",
+  "whisper": "Take a screenshot of this.",
+  "model": "ggml-small.en-q5_1"
+ },
+ "snip-3": {
+  "spoken": "um, screenshot this.",
+  "whisper": "Um, screenshot this.",
+  "model": "ggml-small.en-q5_1"
+ },
+ "snip-4": {
+  "spoken": "screenshot that chart.",
+  "whisper": "Screenshot that chart.",
+  "model": "ggml-small.en-q5_1"
+ }
+}
