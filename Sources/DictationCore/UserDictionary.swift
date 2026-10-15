@@ -51,14 +51,15 @@ public enum SpelledTerm {
                     letter = name
                 } else if token.count == 1, isLetters {
                     letter = token
-                } else if parts.count - (mode == "caps" ? 2 : mode == "lowercase" ? 1 : 0) == 1,
+                } else if (capital || parts.count - (mode == "caps" ? 2 : mode == "lowercase" ? 1 : 0) == 1),
                           isLetters, !["capital", "double", "all", "caps", "lowercase"].contains(token) {
-                    // A normaliser may have already joined a whole spelled word.
+                    // Whisper or a normaliser may join a run, including after "capital".
                     letter = token
                 } else {
                     return nil
                 }
-                letters += String(repeating: capital ? letter.uppercased() : letter, count: copies)
+                let cased = capital ? letter.prefix(1).uppercased() + letter.dropFirst() : letter
+                letters += String(repeating: cased, count: copies)
                 index += 1
             }
             guard !letters.isEmpty else { return nil }

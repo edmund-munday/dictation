@@ -56,12 +56,12 @@ def parse(spelling):
                 letter = NAMES[token]
             elif re.fullmatch(r"[a-z]", token):
                 letter = token
-            elif (len(parts) - word_start == 1 and re.fullmatch(r"[a-z]+", token)
+            elif ((capital or len(parts) - word_start == 1) and re.fullmatch(r"[a-z]+", token)
                   and token not in {"capital", "double", "all", "caps", "lowercase"}):
                 letter = token
             else:
                 return None
-            letters += (letter.upper() if capital else letter) * copies
+            letters += (letter[0].upper() + letter[1:] if capital else letter) * copies
             index += 1
         if not letters:
             return None
