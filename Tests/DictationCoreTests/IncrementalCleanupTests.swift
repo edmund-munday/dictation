@@ -241,7 +241,7 @@ final class IncrementalCleanupTests: XCTestCase {
             XCTAssertEqual(network.requests.count, beforeRelease + 1)
             XCTAssertEqual(network.requests.last?.user, uncleaned)
             if timeout {
-                h.clock.advance(by: .milliseconds(2_900))
+                h.clock.advance(by: .milliseconds(4_900))
                 XCTAssertTrue(h.session.insertRequests.isEmpty)
             }
             h.clock.advance(by: timeout ? .milliseconds(200) : .milliseconds(250))

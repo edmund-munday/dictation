@@ -162,14 +162,14 @@ final class GatewayCleanupTests: XCTestCase {
         XCTAssertEqual(h.session.insertRequests.first?.text, "Gateway wording.")
     }
 
-    func test_G4_neverRespondingTransportFallsBackAfterThreeSecondsAndIgnoresLateReply() throws {
+    func test_G4_neverRespondingTransportFallsBackAfterFiveSecondsAndIgnoresLateReply() throws {
         let h = try TestHarness()
         let transport = StubGatewayHTTPTransport()
         configureGateway(h, transport: transport)
         release(h)
         XCTAssertEqual(transport.requests.count, 1)
 
-        h.clock.advance(by: .milliseconds(2_900))
+        h.clock.advance(by: .milliseconds(4_900))
         XCTAssertTrue(h.session.insertRequests.isEmpty)
         h.clock.advance(by: .milliseconds(200))
         XCTAssertEqual(h.session.insertRequests.map(\.text), ["Hello there."])
@@ -204,7 +204,7 @@ final class GatewayCleanupTests: XCTestCase {
         let transport = StubGatewayHTTPTransport()
         configureGateway(h, transport: transport)
         release(h)
-        h.clock.advance(by: .milliseconds(3_100))
+        h.clock.advance(by: .milliseconds(5_100))
         XCTAssertEqual(h.session.insertRequests.map(\.text), ["Hello there."])
 
         h.pressTalkKey()
@@ -276,7 +276,7 @@ final class GatewayCleanupTests: XCTestCase {
         XCTAssertEqual(GatewayConfig.defaultModel, "deepseek/deepseek-flash")
         XCTAssertEqual(loaded.model, GatewayConfig.defaultModel)
         XCTAssertEqual(loaded.key, "test-only-key")
-        XCTAssertEqual(loaded.timeoutSeconds, 3)
+        XCTAssertEqual(loaded.timeoutSeconds, 5)
         XCTAssertEqual(loaded, config())
     }
 
@@ -285,7 +285,7 @@ final class GatewayCleanupTests: XCTestCase {
         let file = h.workingDirectory.appendingPathComponent("gateway.json")
         // Each optional field can be omitted independently.
         for item in [
-            (#"{"url":"https://gateway.invalid","key":"test-only-key","model":"custom/model"}"#, "custom/model", 3.0),
+            (#"{"url":"https://gateway.invalid","key":"test-only-key","model":"custom/model"}"#, "custom/model", 5.0),
             (#"{"url":"https://gateway.invalid","key":"test-only-key","timeoutSeconds":1.5}"#, GatewayConfig.defaultModel, 1.5),
             (#"{"url":"https://gateway.invalid","key":"test-only-key","model":"custom/model","timeoutSeconds":1.5}"#, "custom/model", 1.5),
         ] {
