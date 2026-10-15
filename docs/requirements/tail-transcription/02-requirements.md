@@ -8,15 +8,17 @@ short-dictation) real whisper-cli (small.en q5_1, vocab prompt) output on growin
   whisper-cli timestamped output (`[hh:mm:ss.mmm --> hh:mm:ss.mmm]  text`); annotations ([BLANK_AUDIO], (wind))
   are dropped as today; the plain text equals today's parseOutput of the same run. Pass: recorded `final_stdout`
   of each fixture parses to the recorded segments and the same text as `-nt` output joined.
-- R259 Stability: a sentence boundary is the end of a whisper segment whose text ends in `.`, `?` or `!`. A
-  boundary is stable once the text up to it (normalised: case, whitespace) and its end time (within 0.15 s) are
-  the same in >= 2 consecutive partials. The stable prefix is the text up to the last stable boundary plus that
-  boundary's audio offset. Once found, it is kept while each later partial's text still starts with it
-  (normalised), even if whisper re-segments (e.g. long-dictation's late partials collapse into one 0-30 s
-  segment); if a later partial's text no longer starts with it, it is dropped and recomputed. Pass, replaying
-  the recorded partials of `whisper-segments.json`: long-dictation, long-plain and long-scratch each end with a
-  stable prefix made of whole sentences that is a prefix of the recorded final text, with an offset equal to a
-  recorded segment end of that boundary; short-dictation ends with none.
+- R259 Stability: a sentence boundary is the end of a whisper segment whose text ends in `.`, `?` or `!`.
+  Text is compared normalised (lowercase, punctuation removed, whitespace collapsed). A partial is degenerate
+  (whisper's 30 s-window hallucination) when any segment ends more than 0.5 s after the audio length; degenerate
+  partials are ignored entirely (they neither confirm nor reset anything). A boundary is stable once the
+  normalised text up to it and its end time (within 0.15 s) match the previous non-degenerate partial. The stable
+  prefix is the text up to the latest stable boundary plus that boundary's end time as the audio offset. It is
+  kept while each later non-degenerate partial's normalised text still starts with it; otherwise it is dropped
+  and recomputed. Pass, replaying the recorded partials of `whisper-segments.json` in order: long-dictation ends
+  with prefix "... before we change anything." at offset 19.88 s (+/-0.15), long-plain "... the main argument
+  first." at 17.0 s, long-scratch "... choosing their own food." at 17.4 s; each normalised prefix starts the
+  recorded final text; short-dictation ends with none.
 - R260 Release on a long hold with a stable prefix (setting on): the pipeline runs whisper once on release, on
   audio starting at (stable offset - overlap, overlap 0.3-1.0 s) only, with prompt = vocabulary hint followed by
   the stable prefix text; the final transcript ingested is prefix + tail with duplicated boundary words removed
