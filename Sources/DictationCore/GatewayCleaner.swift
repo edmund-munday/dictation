@@ -88,6 +88,7 @@ public final class URLSessionGatewayTransport: GatewayHTTPTransport {
 public final class GatewayCleaner {
     private let config: GatewayConfig
     private let transport: GatewayHTTPTransport
+    public var dictionaryTerms: () -> [String] = { [] }
 
     public init(config: GatewayConfig, transport: GatewayHTTPTransport = URLSessionGatewayTransport()) {
         self.config = config
@@ -128,11 +129,12 @@ public final class GatewayCleaner {
         request.timeoutInterval = config.timeoutSeconds
         request.setValue("Bearer \(config.key)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let dictionarySection = UserDictionary.gatewayLine(terms: dictionaryTerms()).map { "\n" + $0 } ?? ""
         let body: [String: Any] = [
             "model": config.model,
             "temperature": 0,
             "messages": [
-                ["role": "system", "content": CleanupPrompt.text + (CommandRouter.promptSection(for: plugins) ?? "")],
+                ["role": "system", "content": CleanupPrompt.text + dictionarySection + (CommandRouter.promptSection(for: plugins) ?? "")],
                 ["role": "user", "content": SpokenMarkup.tokenize(raw)],
             ],
             "max_output_tokens": 600,

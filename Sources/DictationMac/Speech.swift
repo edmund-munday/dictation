@@ -105,10 +105,22 @@ public final class WhisperTranscriber: SegmentedSpeechTranscriber {
         return dir.appendingPathComponent("ggml-base.en.bin")
     }
 
-    /// Vocabulary hint passed as whisper's initial prompt; override with the `whisperPrompt` default
-    /// (empty string disables it).
-    public var initialPrompt: String = UserDefaults.standard.string(forKey: "whisperPrompt")
-        ?? "Edmund dictating notes and messages: note, notes, gateway, Grok, Grok Bot, Grok Build, Claude, Codex, MacBook, Origin, worker, dictation, Kazey, script, Snip."
+    public static let defaultPrompt = "Edmund dictating notes and messages: note, notes, gateway, Grok, Grok Bot, Grok Build, Claude, Codex, MacBook, Origin, worker, dictation, Kazey, script, Snip."
+
+    public var dictionaryURL: URL?
+    private var configuredPrompt = UserDefaults.standard.string(forKey: "whisperPrompt") ?? WhisperTranscriber.defaultPrompt
+
+    /// Read the dictionary for each run, including the vocabulary part of tail prompts.
+    /// A missing dictionary preserves the configured hint (empty disables it).
+    public var initialPrompt: String {
+        get {
+            guard let dictionaryURL, FileManager.default.fileExists(atPath: dictionaryURL.path) else {
+                return configuredPrompt
+            }
+            return UserDictionary.whisperPrompt(terms: UserDictionary(fileURL: dictionaryURL).terms)
+        }
+        set { configuredPrompt = newValue }
+    }
 
     public static let defaultExecutables: [URL] = [
         URL(fileURLWithPath: "/opt/homebrew/bin/whisper-cli"),
@@ -191,10 +203,11 @@ public final class WhisperTranscriber: SegmentedSpeechTranscriber {
         guard fm.createFile(atPath: chunk.path, contents: WAVEncoder.encode(samples: pcm, sampleRate: 16_000),
                             attributes: [.posixPermissions: 0o600]) else { return nil }
         let threads = max(2, min(8, ProcessInfo.processInfo.activeProcessorCount))
+        let context = initialPrompt
         let result = ProcessRunner.run(
             executable: executable,
             arguments: ["-m", model.path, "-f", chunk.path, "-nt", "-np", "-l", "en", "-t", String(threads)]
-                + (initialPrompt.isEmpty ? [] : ["--prompt", initialPrompt]),
+                + (context.isEmpty ? [] : ["--prompt", context]),
             stdin: nil,
             timeout: timeout
         )

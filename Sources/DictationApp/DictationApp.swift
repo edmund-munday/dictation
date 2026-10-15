@@ -62,6 +62,7 @@ struct MenuContent: View {
         Text(model.speechLabel)
         Text(model.cleanupLabel)
         Button("Re-check cleanup CLIs") { model.rechooseCleanup() }
+        Button("Open dictionary") { model.openDictionary() }
         Toggle("Auto-send in chat apps", isOn: Binding(get: { model.autoSendEnabled },
                                                         set: { model.setAutoSend($0) }))
         Toggle("Pause media while dictating", isOn: Binding(get: { model.pauseMediaWhileDictating },

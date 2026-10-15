@@ -1,0 +1,10 @@
+{
+  "name": "dictionary",
+  "description": "Add or remove a preferred spelling by spelling its letters aloud.",
+  "enabled": true,
+  "triggers": ["add word {letters}", "remove word {letters}"],
+  "args": {"letters": {"type": "string", "required": true, "description": "spelled letters, with optional case markers and space"}},
+  "action": {"type": "exec", "path": "bin/dictionary.py", "argv": []},
+  "timeout_s": 5,
+  "confirm_delay_s": 0
+}

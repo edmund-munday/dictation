@@ -51,6 +51,9 @@ final class AppModel: ObservableObject {
             .appendingPathComponent("Library/Application Support/Dictation")
         let scratch = FileManager.default.temporaryDirectory.appendingPathComponent("dictation-chunks", isDirectory: true)
         try? FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
+        let dictionaryURL = UserDictionary.defaultURL
+        try? UserDictionary.migrateIfNeeded(fileURL: dictionaryURL,
+            fromPrompt: UserDefaults.standard.string(forKey: "whisperPrompt") ?? WhisperTranscriber.defaultPrompt)
         clock = QueueClock(queue: work)
         session = Session(clock: clock, paths: SessionPaths(workingDirectory: support))
         toggle = ToggleController(session: session)
@@ -58,7 +61,9 @@ final class AppModel: ObservableObject {
         let transcriber: SpeechTranscriber
         if let found = WhisperTranscriber.locate(executables: WhisperTranscriber.defaultExecutables,
                                                   model: WhisperTranscriber.defaultModel()) {
-            transcriber = WhisperTranscriber(executable: found.executable, model: found.model, scratchDirectory: scratch)
+            let whisper = WhisperTranscriber(executable: found.executable, model: found.model, scratchDirectory: scratch)
+            whisper.dictionaryURL = dictionaryURL
+            transcriber = whisper
             usesAppleSpeech = false
         } else {
             transcriber = AppleSpeechTranscriber()
@@ -83,7 +88,9 @@ final class AppModel: ObservableObject {
             session.setBundledModelLoadable(!usesAppleSpeech)
             session.setTalkKey(.leftCommand)
             if let gatewayConfig {
-                session.setGatewayCleaner(GatewayCleaner(config: gatewayConfig))
+                let cleaner = GatewayCleaner(config: gatewayConfig)
+                cleaner.dictionaryTerms = { UserDictionary(fileURL: dictionaryURL).terms }
+                session.setGatewayCleaner(cleaner)
                 session.setCleanupBackend(.gateway)
             } else {
                 session.setCleanupBackend(.localModel)
@@ -140,6 +147,16 @@ final class AppModel: ObservableObject {
     }
 
     // MARK: Actions
+
+    func openDictionary() {
+        do {
+            try UserDictionary.migrateIfNeeded(fileURL: UserDictionary.defaultURL,
+                fromPrompt: UserDefaults.standard.string(forKey: "whisperPrompt") ?? WhisperTranscriber.defaultPrompt)
+            NSWorkspace.shared.open(UserDictionary.defaultURL)
+        } catch {
+            NSAlert(error: error).runModal()
+        }
+    }
 
     func reloadPlugins() {
         let result = PluginLoader.load(directory: PluginLoader.defaultDirectory)

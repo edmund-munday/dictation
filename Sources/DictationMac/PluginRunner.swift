@@ -136,5 +136,7 @@ public enum BundledPlugins {
         try put(screenshotJSON, dir.appendingPathComponent("screenshot.json"), mode: 0o600)
         try put(echoScript, bin.appendingPathComponent("echo.sh"), mode: 0o700)
         try put(screenshotScript, bin.appendingPathComponent("screenshot.sh"), mode: 0o700)
+        try put(dictionaryJSON, dir.appendingPathComponent("dictionary.json"), mode: 0o600)
+        try put(dictionaryScript, bin.appendingPathComponent("dictionary.py"), mode: 0o700)
     }
 }
