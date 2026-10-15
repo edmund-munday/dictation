@@ -8,6 +8,13 @@ public protocol SpeechTranscriber: AnyObject {
     func transcribe(samples: [Float], sampleRate: Double) -> String?
 }
 
+/// Timestamped recognition with an optional per-run prompt override.
+public protocol SegmentedSpeechTranscriber: SpeechTranscriber {
+    var initialPrompt: String { get }
+    /// A nil prompt uses the transcriber's existing vocabulary hint.
+    func transcribeSegments(samples: [Float], sampleRate: Double, prompt: String?) -> [TranscriptSegment]?
+}
+
 /// Live microphone samples held only in memory.
 public protocol AudioSource: AnyObject {
     var sampleRate: Double { get }
@@ -71,7 +78,7 @@ public enum WAVEncoder {
 
 /// whisper.cpp via whisper-cli. Each call writes one transient WAV chunk in
 /// `scratchDirectory` and deletes it as soon as whisper exits (M7).
-public final class WhisperTranscriber: SpeechTranscriber {
+public final class WhisperTranscriber: SegmentedSpeechTranscriber {
     public let executable: URL
     public let model: URL
     public let scratchDirectory: URL
@@ -130,6 +137,48 @@ public final class WhisperTranscriber: SpeechTranscriber {
             if !text.isEmpty { pieces.append(text) }
         }
         return pieces.joined(separator: " ")
+    }
+
+    public static func parseSegments(_ output: String) -> [TranscriptSegment] {
+        let timestamp = #"(\d{2}:\d{2}:\d{2}\.\d{3})"#
+        let pattern = #"^\["# + timestamp + #"\s+-->\s+"# + timestamp + #"\]\s*(.*)$"#
+        guard let expression = try? NSRegularExpression(pattern: pattern) else { return [] }
+        func seconds(_ timestamp: Substring) -> Double {
+            let parts = timestamp.split(separator: ":").compactMap { Double($0) }
+            return parts[0] * 3600 + parts[1] * 60 + parts[2]
+        }
+        return output.split(whereSeparator: \.isNewline).compactMap { line in
+            let line = line.trimmingCharacters(in: .whitespaces)
+            guard let match = expression.firstMatch(in: line, range: NSRange(line.startIndex..., in: line)),
+                  let start = Range(match.range(at: 1), in: line),
+                  let end = Range(match.range(at: 2), in: line),
+                  let body = Range(match.range(at: 3), in: line) else { return nil }
+            let text = parseOutput(String(line[body]))
+            guard !text.isEmpty else { return nil }
+            return TranscriptSegment(start: seconds(line[start]), end: seconds(line[end]), text: text)
+        }
+    }
+
+    public func transcribeSegments(samples: [Float], sampleRate: Double, prompt: String?) -> [TranscriptSegment]? {
+        let fm = FileManager.default
+        try? fm.createDirectory(at: scratchDirectory, withIntermediateDirectories: true,
+                                attributes: [.posixPermissions: 0o700])
+        let chunk = scratchDirectory.appendingPathComponent("chunk-\(UUID().uuidString).wav")
+        defer { try? fm.removeItem(at: chunk) }
+        let pcm = WAVEncoder.resample(samples, from: sampleRate, to: 16_000)
+        guard fm.createFile(atPath: chunk.path, contents: WAVEncoder.encode(samples: pcm, sampleRate: 16_000),
+                            attributes: [.posixPermissions: 0o600]) else { return nil }
+        let threads = max(2, min(8, ProcessInfo.processInfo.activeProcessorCount))
+        let context = prompt ?? initialPrompt
+        let result = ProcessRunner.run(
+            executable: executable,
+            arguments: ["-m", model.path, "-f", chunk.path, "-np", "-l", "en", "-t", String(threads)]
+                + (context.isEmpty ? [] : ["--prompt", context]),
+            stdin: nil,
+            timeout: timeout
+        )
+        guard let result, result.status == 0 else { return nil }
+        return Self.parseSegments(result.stdout)
     }
 
     public func transcribe(samples: [Float], sampleRate: Double) -> String? {

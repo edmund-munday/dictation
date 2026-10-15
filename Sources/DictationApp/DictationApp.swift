@@ -66,6 +66,8 @@ struct MenuContent: View {
                                                         set: { model.setAutoSend($0) }))
         Toggle("Pause media while dictating", isOn: Binding(get: { model.pauseMediaWhileDictating },
                                                            set: { model.setPauseMediaWhileDictating($0) }))
+        Toggle("Fast release transcription", isOn: Binding(get: { model.tailTranscriptionEnabled },
+                                                           set: { model.setTailTranscriptionEnabled($0) }))
         Toggle("Save dictations for tuning", isOn: Binding(get: { model.saveDictations },
                                                            set: { model.setSaveDictations($0) }))
         Button("Reveal dictation log folder") { model.revealCorpusFolder() }

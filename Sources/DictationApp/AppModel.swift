@@ -11,6 +11,8 @@ final class AppModel: ObservableObject {
     @Published var enabled = false
     @Published var autoSendEnabled = true
     @Published var pauseMediaWhileDictating = MediaPauseCoordinator.isEnabled(in: .standard)
+    @Published var tailTranscriptionEnabled = UserDefaults.standard.object(forKey: HoldPipeline.tailTranscriptionDefaultKey)
+        as? Bool ?? HoldPipeline.tailTranscriptionDefaultOn
     @Published var saveDictations = UserDefaults.standard.object(forKey: "saveDictationsForTuning") as? Bool ?? true
     private lazy var corpus = CorpusLogger(enabled: saveDictations)
     @Published var statusSymbol = "mic.slash"
@@ -65,6 +67,7 @@ final class AppModel: ObservableObject {
         let available = !usesAppleSpeech || (transcriber as? AppleSpeechTranscriber)?.isAvailable == true
         pipeline = HoldPipeline(session: session, clock: clock, audio: mic, transcriber: transcriber, focus: ax)
         insertion = InsertionCoordinator(session: session, inserter: ax)
+        pipeline.tailTranscriptionEnabled = tailTranscriptionEnabled
         insertion.autoSend = AutoSendPolicy.load()
         autoSendEnabled = insertion.autoSend?.enabled ?? true
         speechLabel = "Speech: " + transcriber.name
@@ -233,6 +236,12 @@ final class AppModel: ObservableObject {
         pauseMediaWhileDictating = on
         UserDefaults.standard.set(on, forKey: "pauseMediaWhileDictating")
         mediaQueue.async { self.mediaCoordinator.enabled = on }
+    }
+
+    func setTailTranscriptionEnabled(_ on: Bool) {
+        tailTranscriptionEnabled = on
+        UserDefaults.standard.set(on, forKey: HoldPipeline.tailTranscriptionDefaultKey)
+        work.async { self.pipeline.tailTranscriptionEnabled = on }
     }
 
     func toggleEnabled() {
