@@ -24,6 +24,7 @@ final class DictionaryTests: XCTestCase {
             ("capital T-E-S-S-A", "Tessa"),
             ("M O double S", "Moss"),
             ("capital G-R-O-K space capital B-O-T", "Grok Bot"),
+            ("capital GROK space capital BOT", "Grok Bot"),  // real whisper variant without vocabulary prompt
             ("all caps A P I", "API"),
             ("lowercase S C R I P T", "script"),
             ("kay ay zed ee why", "Kazey"),

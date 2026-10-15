@@ -37,7 +37,7 @@ final class DictionaryPluginTests: XCTestCase {
         for (spelled, term) in [
             ("K, A, Z, E, Y", "Kazey"), ("K. A. Z. E. Y.", "Kazey"), ("K A Z E Y", "Kazey"),
             ("capital T-E-S-S-A", "Tessa"), ("M O double S", "Moss"),
-            ("capital G-R-O-K space capital B-O-T", "Grok Bot"), ("all caps A P I", "API"),
+            ("capital G-R-O-K space capital B-O-T", "Grok Bot"), ("capital GROK space capital BOT", "Grok Bot"), ("all caps A P I", "API"),
             ("lowercase S C R I P T", "script"), ("kay ay zed ee why", "Kazey"), ("kazey", "Kazey"),
         ] {
             let (h, network) = try harness()
