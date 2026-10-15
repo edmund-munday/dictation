@@ -12,6 +12,7 @@ public final class InsertionCoordinator {
     private let session: Session
     private let inserter: TextInserter
     private let pasteboard: NSPasteboard
+    private let focus: FocusProvider?
     private var delivered = 0
     /// Per insert-request index: (inserted, autoSent). Read by CorpusLogger (R228).
     public private(set) var outcomes: [Int: (inserted: Bool, autoSent: Bool)] = [:]
@@ -26,10 +27,12 @@ public final class InsertionCoordinator {
         DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
     }
 
-    public init(session: Session, inserter: TextInserter, pasteboard: NSPasteboard = .general) {
+    public init(session: Session, inserter: TextInserter, pasteboard: NSPasteboard = .general,
+                focus: FocusProvider? = nil) {
         self.session = session
         self.inserter = inserter
         self.pasteboard = pasteboard
+        self.focus = focus
     }
 
     public func poll() {
@@ -38,6 +41,12 @@ public final class InsertionCoordinator {
             let index = delivered
             let request = requests[index]
             delivered += 1
+            if hasSwitchedFocus(from: request.target) {
+                pendingCopyText = request.text
+                outcomes[index] = (false, false)
+                session.reportInsertionSwitchedField(for: index)
+                continue
+            }
             if inserter.insert(request.text, into: request.target, replacingSelection: request.replacesSelection) {
                 pendingCopyText = nil
                 session.reportInsertionSucceeded(for: index)
@@ -55,6 +64,17 @@ public final class InsertionCoordinator {
                 outcomes[index] = (false, false)
                 session.reportInsertionFailed(for: index)
             }
+        }
+    }
+
+    private func hasSwitchedFocus(from target: FocusIdentity) -> Bool {
+        guard let current = focus?.currentFocus(at: session.clock.now), current.exists else { return false }
+        switch current.role {
+        case .textField, .textArea, .comboBox, .terminal, .editableWebArea:
+            // Role labels and frames can change while the same field stays focused.
+            return current.identity.pid != target.pid || current.identity.elementID != target.elementID
+        default:
+            return false
         }
     }
 

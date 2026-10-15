@@ -536,6 +536,14 @@ public final class Session: @unchecked Sendable {
                                 copyText: insertRequests[requestIndex].text)
     }
 
+    public func reportInsertionSwitchedField(for requestIndex: Int) {
+        guard insertRequests.indices.contains(requestIndex) else { return }
+        let blocked = OverlayState(text: MenuMessages.insertSwitchedField, buttons: [OverlayButton(title: "Copy")])
+        overlayState = blocked
+        panelState = PanelState(isVisible: true, text: MenuMessages.insertSwitchedField, buttons: blocked.buttons,
+                                copyText: insertRequests[requestIndex].text)
+    }
+
     public func reportInsertionSucceeded(for requestIndex: Int) {
         guard insertRequests.indices.contains(requestIndex) else { return }
         overlayState = .empty
@@ -1729,7 +1737,7 @@ public final class Session: @unchecked Sendable {
     }
 }
 
-enum MenuMessages {
+public enum MenuMessages {
     static let listening = "Dictation is listening. Click a text field to type."
     static let off = "Dictation is off. The microphone is closed."
     static let ready = "Dictation is on. This field will receive speech."
@@ -1742,6 +1750,7 @@ enum MenuMessages {
     static let muted = "Dictation is paused while the microphone is muted."
     static let selectionKept = "Selection kept. Click where the words should go."
     static let insertFailed = "Heard you. Could not type into this field."
+    public static let insertSwitchedField = "Not inserted: you switched to a different field. Copy it instead."
     static let newlineStripped = "Newline stays out of this field."
     static let cliUnavailable = "CLI cleanup unavailable; using local cleanup."
     static let accessibilityMissing = "Dictation can't type: Accessibility permission is missing."

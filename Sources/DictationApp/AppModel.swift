@@ -66,7 +66,7 @@ final class AppModel: ObservableObject {
         }
         let available = !usesAppleSpeech || (transcriber as? AppleSpeechTranscriber)?.isAvailable == true
         pipeline = HoldPipeline(session: session, clock: clock, audio: mic, transcriber: transcriber, focus: ax)
-        insertion = InsertionCoordinator(session: session, inserter: ax)
+        insertion = InsertionCoordinator(session: session, inserter: ax, focus: ax)
         pipeline.tailTranscriptionEnabled = tailTranscriptionEnabled
         insertion.autoSend = AutoSendPolicy.load()
         autoSendEnabled = insertion.autoSend?.enabled ?? true
