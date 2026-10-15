@@ -115,7 +115,7 @@ final class PluginRunnerTests: XCTestCase {
     func test_R234_bundledPluginsInstallAndMatchScreenshotPhrases() throws {
         try BundledPlugins.install(into: dir)
         let loaded = PluginLoader.load(directory: dir)
-        XCTAssertEqual(Set(loaded.plugins.map(\.name)), ["echo", "screenshot"])
+        XCTAssertEqual(Set(loaded.plugins.map(\.name)), ["echo", "screenshot", "dictionary"])
         for phrase in ["take a screenshot", "Take a screenshot of the error dialog.", "grab a screenshot", "screenshot this"] {
             XCTAssertEqual(TriggerMatcher.match(phrase, plugins: loaded.plugins)?.plugin, "screenshot", phrase)
         }
@@ -135,7 +135,7 @@ final class PluginRunnerTests: XCTestCase {
         try BundledPlugins.install(into: dir)
         let loaded = PluginLoader.load(directory: dir)
         XCTAssertTrue(loaded.errors.isEmpty)
-        XCTAssertEqual(Set(loaded.plugins.map(\.name)), ["echo", "screenshot"])
+        XCTAssertEqual(Set(loaded.plugins.map(\.name)), ["echo", "screenshot", "dictionary"])
         let echo = try XCTUnwrap(loaded.plugins.first { $0.name == "echo" })
         let screenshot = try XCTUnwrap(loaded.plugins.first { $0.name == "screenshot" })
         XCTAssertEqual(echo.confirmDelaySeconds, 0)
