@@ -389,6 +389,8 @@ public struct UtteranceRecord: Sendable, Equatable {
     public var tokenized: String
     public var cleaned: String
     public var backend: String
+    /// How cleanup completed: gateway, timeout, error, rejected, or local.
+    public var cleanupOutcome: String = "local"
     public var latencyMs: Int
     public var fieldRole: FieldRole
     public var target: FocusIdentity?

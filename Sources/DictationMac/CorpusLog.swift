@@ -32,7 +32,7 @@ public final class CorpusLogger {
             let obj: [String: Any] = [
                 "timestamp": iso.string(from: r.timestamp),
                 "raw": r.raw, "tokenized": r.tokenized, "cleaned": r.cleaned,
-                "backend": r.backend, "latencyMs": r.latencyMs,
+                "backend": r.backend, "cleanupOutcome": r.cleanupOutcome, "latencyMs": r.latencyMs,
                 "app": r.target.flatMap { bundleForPID($0.pid) } ?? NSNull(),
                 "field": "\(r.fieldRole)",
                 "inserted": outcome?.inserted ?? false,

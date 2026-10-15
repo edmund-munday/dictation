@@ -22,7 +22,7 @@ final class SentenceTracker {
                 .map { sentences[$0].text }.joined(separator: " ")
         }
 
-        func joined(reply: String?) -> String {
+        func joined(reply: String?) -> (text: String, usedGateway: Bool, usedReply: Bool) {
             let missing = sentences.indices.filter { cleaned[$0] == nil }
             var replacements: [Int: String] = [:]
             if let reply, let first = missing.first {
@@ -40,9 +40,10 @@ final class SentenceTracker {
             }
             // If a rewrite cannot be aligned safely, use local cleanup for the
             // gaps rather than reorder or lose speech around a cached sentence.
-            return sentences.indices.map {
+            let text = sentences.indices.map {
                 cleaned[$0] ?? replacements[$0] ?? Cleanup.clean(sentences[$0].text)
             }.filter { !$0.isEmpty }.joined(separator: " ")
+            return (text, !cleaned.isEmpty || !replacements.isEmpty, !replacements.isEmpty)
         }
     }
 

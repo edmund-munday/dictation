@@ -11,7 +11,7 @@ public struct GatewayConfig: Codable, Equatable, Sendable {
 
     public static let defaultModel = "deepseek/deepseek-flash"
 
-    public init(url: URL, model: String = GatewayConfig.defaultModel, key: String, timeoutSeconds: Double = 3) {
+    public init(url: URL, model: String = GatewayConfig.defaultModel, key: String, timeoutSeconds: Double = 5) {
         self.url = url
         self.model = model
         self.key = key
@@ -27,7 +27,7 @@ public struct GatewayConfig: Codable, Equatable, Sendable {
         url = try values.decode(URL.self, forKey: .url)
         key = try values.decode(String.self, forKey: .key)
         model = try values.decodeIfPresent(String.self, forKey: .model) ?? Self.defaultModel
-        timeoutSeconds = try values.decodeIfPresent(Double.self, forKey: .timeoutSeconds) ?? 3
+        timeoutSeconds = try values.decodeIfPresent(Double.self, forKey: .timeoutSeconds) ?? 5
     }
 
     public static func load(from file: URL) -> GatewayConfig? {
@@ -98,13 +98,29 @@ public final class GatewayCleaner {
     /// never call back cannot stall the sentence queue.
     var timeout: Duration { .seconds(config.timeoutSeconds) }
 
-    func cleanSentence(_ raw: String, completion: @escaping (String?) -> Void) {
-        clean(raw, plugins: [], completion: completion)
+    enum CleanupResult {
+        case reply(String)
+        case timeout
+        case error
+    }
+
+    func cleanSentence(_ raw: String, completion: @escaping (CleanupResult) -> Void) {
+        cleanWithResult(raw, plugins: [], completion: completion)
     }
 
     public func clean(_ raw: String, plugins: [PluginSpec] = [], completion: @escaping (String?) -> Void) {
+        cleanWithResult(raw, plugins: plugins) { result in
+            if case .reply(let text) = result {
+                completion(text)
+            } else {
+                completion(nil)
+            }
+        }
+    }
+
+    func cleanWithResult(_ raw: String, plugins: [PluginSpec] = [], completion: @escaping (CleanupResult) -> Void) {
         guard config.isValid else {
-            completion(nil)
+            completion(.error)
             return
         }
         var request = URLRequest(url: config.url.appendingPathComponent("v1/chat"))
@@ -124,18 +140,22 @@ public final class GatewayCleaner {
             "tool_tag": "dictation:cleanup",
         ]
         guard let data = try? JSONSerialization.data(withJSONObject: body) else {
-            completion(nil)
+            completion(.error)
             return
         }
         request.httpBody = data
         transport.send(request) { result in
+            if case .failure(let error) = result, (error as? URLError)?.code == .timedOut {
+                completion(.timeout)
+                return
+            }
             guard case let .success((data, status)) = result, status == 200,
                   let response = try? JSONDecoder().decode(Response.self, from: data) else {
-                completion(nil)
+                completion(.error)
                 return
             }
             let text = response.text.trimmingCharacters(in: .whitespacesAndNewlines)
-            completion(text.isEmpty ? nil : text)
+            completion(text.isEmpty ? .error : .reply(text))
         }
     }
 

@@ -118,6 +118,8 @@ public final class Session: @unchecked Sendable {
         var routed = false
         var incremental: SentenceTracker.ReleasePlan?
         var routesPlugins = true
+        var cleanupOutcome = "local"
+        var usedGateway = false
     }
 
     private final class LLMJob {
@@ -138,7 +140,7 @@ public final class Session: @unchecked Sendable {
     private final class GatewayJob: @unchecked Sendable {
         enum State {
             case pending
-            case completed(String?)
+            case completed(GatewayCleaner.CleanupResult)
             case ignored
         }
 
@@ -150,11 +152,11 @@ public final class Session: @unchecked Sendable {
             self.generation = generation
         }
 
-        func complete(_ text: String?) {
+        func complete(_ result: GatewayCleaner.CleanupResult) {
             lock.lock()
             defer { lock.unlock() }
             guard case .pending = state else { return }
-            state = .completed(text)
+            state = .completed(result)
         }
 
         func snapshot() -> State {
@@ -795,7 +797,7 @@ public final class Session: @unchecked Sendable {
             let job = GatewayJob(generation: generation)
             gatewayJob = job
             deferred = DeferredCommit(
-                due: releaseAt + .seconds(3),
+                due: releaseAt + gatewayCleaner.timeout,
                 generation: generation,
                 raw: raw,
                 text: nil,
@@ -815,10 +817,10 @@ public final class Session: @unchecked Sendable {
             )
             let requestRaw = incremental?.raw ?? raw
             if requestRaw.isEmpty {
-                job.complete("")
+                job.complete(.reply("")) // All sentences already have accepted gateway replies.
             } else {
-                gatewayCleaner.clean(requestRaw, plugins: isLong ? [] : plugins) { [job] text in
-                    job.complete(text)
+                gatewayCleaner.cleanWithResult(requestRaw, plugins: isLong ? [] : plugins) { [job] result in
+                    job.complete(result)
                 }
             }
             // A transport may finish synchronously. Pick that up before returning;
@@ -1199,7 +1201,7 @@ public final class Session: @unchecked Sendable {
                 job.mailbox.ignore()
                 backgroundJobs.removeValue(forKey: revision)
             } else if case .completed(let reply) = job.mailbox.snapshot() {
-                if let reply, let accepted = acceptLLMResult(raw: revision.text, result: reply) {
+                if case .reply(let text) = reply, let accepted = acceptLLMResult(raw: revision.text, result: text) {
                     tracker.accept(accepted, for: revision)
                 }
                 job.mailbox.ignore()
@@ -1210,11 +1212,11 @@ public final class Session: @unchecked Sendable {
             tracker.markSent(revision)
             let mailbox = GatewayJob(generation: commitGeneration)
             backgroundJobs[revision] = BackgroundJob(mailbox: mailbox, due: clock.now + cleaner.timeout)
-            cleaner.cleanSentence(revision.text) { [mailbox] text in mailbox.complete(text) }
+            cleaner.cleanSentence(revision.text) { [mailbox] result in mailbox.complete(result) }
             // Collect synchronous transports too, without waiting for another
             // partial or using a transport callback to mutate Session.
             if case .completed(let reply) = mailbox.snapshot() {
-                if let reply, let accepted = acceptLLMResult(raw: revision.text, result: reply) {
+                if case .reply(let text) = reply, let accepted = acceptLLMResult(raw: revision.text, result: text) {
                     tracker.accept(accepted, for: revision)
                 }
                 mailbox.ignore()
@@ -1264,11 +1266,11 @@ public final class Session: @unchecked Sendable {
                     showLLMTimeout = true
                     llmTimeoutNoted = true
                 }
-                applyGatewayResultToDeferred(nil)
-            } else if case .completed(let text) = job.snapshot() {
+                applyGatewayResultToDeferred(.timeout)
+            } else if case .completed(let result) = job.snapshot() {
                 job.ignore()
                 gatewayJob = nil
-                applyGatewayResultToDeferred(text)
+                applyGatewayResultToDeferred(result)
             }
         }
 
@@ -1330,8 +1332,20 @@ public final class Session: @unchecked Sendable {
         return releaseFocus
     }
 
-    private func applyGatewayResultToDeferred(_ reply: String?) {
+    private func applyGatewayResultToDeferred(_ result: GatewayCleaner.CleanupResult) {
         guard var pendingCommit = deferred else { return }
+        let reply: String?
+        switch result {
+        case .reply(let text):
+            reply = text
+            pendingCommit.cleanupOutcome = "rejected"
+        case .timeout:
+            reply = nil
+            pendingCommit.cleanupOutcome = "timeout"
+        case .error:
+            reply = nil
+            pendingCommit.cleanupOutcome = "error"
+        }
         var output = reply
         if let reply, !plugins.isEmpty, pendingCommit.routesPlugins {
             pendingCommit.routed = true
@@ -1352,10 +1366,19 @@ public final class Session: @unchecked Sendable {
         let cleaned: String
         if let plan = pendingCommit.incremental {
             let accepted = output.flatMap { acceptLLMResult(raw: plan.raw, result: $0) }
-            cleaned = plan.joined(reply: accepted)
+            let resolved = plan.joined(reply: accepted)
+            cleaned = resolved.text
+            pendingCommit.usedGateway = resolved.usedGateway
+            if resolved.usedReply || (plan.raw.isEmpty && !plan.cleaned.isEmpty) {
+                pendingCommit.cleanupOutcome = "gateway"
+            }
         } else {
-            cleaned = output.flatMap { acceptLLMResult(raw: pendingCommit.raw, result: $0) }
-                ?? Cleanup.clean(pendingCommit.raw)
+            let accepted = output.flatMap { acceptLLMResult(raw: pendingCommit.raw, result: $0) }
+            cleaned = accepted ?? Cleanup.clean(pendingCommit.raw)
+            if accepted != nil {
+                pendingCommit.usedGateway = true
+                pendingCommit.cleanupOutcome = "gateway"
+            }
         }
         let resolved = resolveOutput(raw: pendingCommit.raw, cleaned: cleaned,
                                      focus: storedFocus(for: pendingCommit))
@@ -1427,22 +1450,25 @@ public final class Session: @unchecked Sendable {
         let raw = job.raw
         guard !raw.isEmpty else { return }
         let cleaned = job.command == nil ? (job.text ?? "") : ""
-        var backend = "local"
-        switch cleanupBackend {
-        case .gateway, .cursorCLI, .claudeCLI, .grokCLI:
-            let squash = { (t: String) in t.filter { !$0.isWhitespace } }
-            let local = SendIntent.decide(raw: raw, text: Cleanup.clean(raw)).text
-            if squash(local) != squash(cleaned) {
-                backend = cleanupBackend == .gateway ? "gateway" : "cli"
+        var backend = job.usedGateway && job.command == nil ? "gateway" : "local"
+        if !job.usedGateway, job.command == nil {
+            switch cleanupBackend {
+            case .cursorCLI, .claudeCLI, .grokCLI:
+                let squash = { (t: String) in t.filter { !$0.isWhitespace } }
+                let local = SendIntent.decide(raw: raw, text: Cleanup.clean(raw)).text
+                if squash(local) != squash(cleaned) {
+                    backend = "cli"
+                }
+            default: break
             }
-        default: break
         }
         let released = releaseTimes.removeValue(forKey: job.generation) ?? clock.now
         let c = (clock.now - released).components
         let ms = max(0, Int(c.seconds * 1000 + c.attoseconds / 1_000_000_000_000_000))
         utteranceRecords.append(UtteranceRecord(
             timestamp: Date(), raw: raw, tokenized: SpokenMarkup.tokenize(raw), cleaned: cleaned,
-            backend: backend, latencyMs: ms, fieldRole: focus?.role ?? .none, target: job.target,
+            backend: backend, cleanupOutcome: job.command == nil ? job.cleanupOutcome : "local",
+            latencyMs: ms, fieldRole: focus?.role ?? .none, target: job.target,
             insertIndex: insertIndex, autoSendAllowed: job.command == nil && job.allowSend, cancelled: false,
             mode: job.command == nil ? "dictation" : "command", plugin: job.command?.plugin))
     }
