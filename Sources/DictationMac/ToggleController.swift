@@ -1,7 +1,7 @@
 import DictationCore
 import Foundation
 
-/// Enabled/disabled state (M5). Enabled maps onto the core latch.
+/// Active/paused state (M5, R289-R290). Active maps onto the core latch.
 public final class ToggleController {
     private let session: Session
 
@@ -19,9 +19,9 @@ public final class ToggleController {
         setEnabled(!isEnabled)
     }
 
-    public var statusSymbolName: String { isEnabled ? "mic.fill" : "mic.slash" }
+    public var statusSymbolName: String { isEnabled ? "mic.fill" : "pause.circle" }
 
     public var menuTitle: String {
-        isEnabled ? "Dictation On (Ctrl-Opt-Space turns off)" : "Dictation Off (Ctrl-Opt-Space turns on)"
+        isEnabled ? "Pause dictation (Ctrl-Opt-Space)" : "Resume dictation (Ctrl-Opt-Space)"
     }
 }
