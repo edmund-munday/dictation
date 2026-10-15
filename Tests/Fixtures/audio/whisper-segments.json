@@ -1,0 +1,1792 @@
+{
+ "long-dictation": {
+  "interval_s": 0.8,
+  "partials": [
+   {
+    "t": 0.8,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 0.84,
+      "text": "So I had a look..."
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:00.840]   So I had a look...\n"
+   },
+   {
+    "t": 1.6,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 1.6,
+      "text": "So I had a look at the quarterly note."
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:01.600]   So I had a look at the quarterly note.\n"
+   },
+   {
+    "t": 2.4,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 2.4,
+      "text": "So I had a look at the quarterly numbers this morning."
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:02.400]   So I had a look at the quarterly numbers this morning.\n"
+   },
+   {
+    "t": 3.2,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 30.0,
+      "text": "so i had a look at the quarterly numbers this morning and they are on a"
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:30.000]   so i had a look at the quarterly numbers this morning and they are on a\n"
+   },
+   {
+    "t": 4.0,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 3.92,
+      "text": "So I had a look at the quarterly numbers this morning, and they are honestly better than"
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:03.920]   So I had a look at the quarterly numbers this morning, and they are honestly better than\n"
+   },
+   {
+    "t": 4.8,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 3.98,
+      "text": "So I had a look at the quarterly numbers this morning, and they are honestly better than"
+     },
+     {
+      "start": 3.98,
+      "end": 4.8,
+      "text": "I expected."
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:03.980]   So I had a look at the quarterly numbers this morning, and they are honestly better than\n[00:00:03.980 --> 00:00:04.800]   I expected.\n"
+   },
+   {
+    "t": 5.6,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 3.98,
+      "text": "So I had a look at the quarterly numbers this morning, and they are honestly better than"
+     },
+     {
+      "start": 3.98,
+      "end": 5.0,
+      "text": "I expected."
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:03.980]   So I had a look at the quarterly numbers this morning, and they are honestly better than\n[00:00:03.980 --> 00:00:05.000]   I expected.\n"
+   },
+   {
+    "t": 6.4,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 3.98,
+      "text": "So I had a look at the quarterly numbers this morning, and they are honestly better than"
+     },
+     {
+      "start": 3.98,
+      "end": 4.98,
+      "text": "I expected."
+     },
+     {
+      "start": 4.98,
+      "end": 6.36,
+      "text": "Sales in the North Region."
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:03.980]   So I had a look at the quarterly numbers this morning, and they are honestly better than\n[00:00:03.980 --> 00:00:04.980]   I expected.\n[00:00:04.980 --> 00:00:06.360]   Sales in the North Region.\n"
+   },
+   {
+    "t": 7.2,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 3.96,
+      "text": "So I had a look at the quarterly numbers this morning, and they are honestly better than"
+     },
+     {
+      "start": 3.96,
+      "end": 5.0,
+      "text": "I expected."
+     },
+     {
+      "start": 5.0,
+      "end": 7.24,
+      "text": "Sales in the north region went up by about"
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:03.960]   So I had a look at the quarterly numbers this morning, and they are honestly better than\n[00:00:03.960 --> 00:00:05.000]   I expected.\n[00:00:05.000 --> 00:00:07.240]   Sales in the north region went up by about\n"
+   },
+   {
+    "t": 8.0,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 3.96,
+      "text": "So I had a look at the quarterly numbers this morning, and they are honestly better than"
+     },
+     {
+      "start": 3.96,
+      "end": 5.0,
+      "text": "I expected."
+     },
+     {
+      "start": 5.0,
+      "end": 8.0,
+      "text": "Sales in the north region went up by about 12%"
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:03.960]   So I had a look at the quarterly numbers this morning, and they are honestly better than\n[00:00:03.960 --> 00:00:05.000]   I expected.\n[00:00:05.000 --> 00:00:08.000]   Sales in the north region went up by about 12%\n"
+   },
+   {
+    "t": 8.8,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 3.96,
+      "text": "So I had a look at the quarterly numbers this morning, and they are honestly better than"
+     },
+     {
+      "start": 3.96,
+      "end": 8.8,
+      "text": "I expected. Sales in the north region went up by about 12 percent, which is way higher."
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:03.960]   So I had a look at the quarterly numbers this morning, and they are honestly better than\n[00:00:03.960 --> 00:00:08.800]   I expected. Sales in the north region went up by about 12 percent, which is way higher.\n"
+   },
+   {
+    "t": 9.6,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 3.94,
+      "text": "So I had a look at the quarterly numbers this morning, and they are honestly better than"
+     },
+     {
+      "start": 3.94,
+      "end": 9.54,
+      "text": "I expected. Sales in the north region went up by about 12%, which is really good news"
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:03.940]   So I had a look at the quarterly numbers this morning, and they are honestly better than\n[00:00:03.940 --> 00:00:09.540]   I expected. Sales in the north region went up by about 12%, which is really good news\n"
+   },
+   {
+    "t": 10.4,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 3.96,
+      "text": "So I had a look at the quarterly numbers this morning, and they are honestly better than"
+     },
+     {
+      "start": 3.96,
+      "end": 5.0,
+      "text": "I expected."
+     },
+     {
+      "start": 5.0,
+      "end": 10.24,
+      "text": "Sales in the north region went up by about 12%, which is really good news for the team."
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:03.960]   So I had a look at the quarterly numbers this morning, and they are honestly better than\n[00:00:03.960 --> 00:00:05.000]   I expected.\n[00:00:05.000 --> 00:00:10.240]   Sales in the north region went up by about 12%, which is really good news for the team.\n"
+   },
+   {
+    "t": 11.2,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 3.96,
+      "text": "So I had a look at the quarterly numbers this morning, and they are honestly better than"
+     },
+     {
+      "start": 3.96,
+      "end": 5.0,
+      "text": "I expected."
+     },
+     {
+      "start": 5.0,
+      "end": 10.6,
+      "text": "Sales in the north region went up by about 12%, which is really good news for the team."
+     },
+     {
+      "start": 10.6,
+      "end": 11.24,
+      "text": "The south region is pretty good."
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:03.960]   So I had a look at the quarterly numbers this morning, and they are honestly better than\n[00:00:03.960 --> 00:00:05.000]   I expected.\n[00:00:05.000 --> 00:00:10.600]   Sales in the north region went up by about 12%, which is really good news for the team.\n[00:00:10.600 --> 00:00:11.240]   The south region is pretty good.\n"
+   },
+   {
+    "t": 12.0,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 3.96,
+      "text": "So I had a look at the quarterly numbers this morning, and they are honestly better than"
+     },
+     {
+      "start": 3.96,
+      "end": 5.12,
+      "text": "I expected."
+     },
+     {
+      "start": 5.12,
+      "end": 10.6,
+      "text": "Sales in the north region went up by about 12%, which is really good news for the team."
+     },
+     {
+      "start": 10.6,
+      "end": 12.0,
+      "text": "The south region is still ab-"
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:03.960]   So I had a look at the quarterly numbers this morning, and they are honestly better than\n[00:00:03.960 --> 00:00:05.120]   I expected.\n[00:00:05.120 --> 00:00:10.600]   Sales in the north region went up by about 12%, which is really good news for the team.\n[00:00:10.600 --> 00:00:12.000]   The south region is still ab-\n"
+   },
+   {
+    "t": 12.8,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 3.96,
+      "text": "So I had a look at the quarterly numbers this morning, and they are honestly better than"
+     },
+     {
+      "start": 3.96,
+      "end": 5.0,
+      "text": "I expected."
+     },
+     {
+      "start": 5.0,
+      "end": 10.58,
+      "text": "Sales in the north region went up by about 12%, which is really good news for the team."
+     },
+     {
+      "start": 10.58,
+      "end": 12.8,
+      "text": "The south region is still a bit flat, um."
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:03.960]   So I had a look at the quarterly numbers this morning, and they are honestly better than\n[00:00:03.960 --> 00:00:05.000]   I expected.\n[00:00:05.000 --> 00:00:10.580]   Sales in the north region went up by about 12%, which is really good news for the team.\n[00:00:10.580 --> 00:00:12.800]   The south region is still a bit flat, um.\n"
+   },
+   {
+    "t": 13.6,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 3.96,
+      "text": "So I had a look at the quarterly numbers this morning, and they are honestly better than"
+     },
+     {
+      "start": 3.96,
+      "end": 5.12,
+      "text": "I expected."
+     },
+     {
+      "start": 5.12,
+      "end": 10.6,
+      "text": "Sales in the north region went up by about 12%, which is really good news for the team."
+     },
+     {
+      "start": 10.6,
+      "end": 13.6,
+      "text": "The south region is still a bit flat, um, but the new"
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:03.960]   So I had a look at the quarterly numbers this morning, and they are honestly better than\n[00:00:03.960 --> 00:00:05.120]   I expected.\n[00:00:05.120 --> 00:00:10.600]   Sales in the north region went up by about 12%, which is really good news for the team.\n[00:00:10.600 --> 00:00:13.600]   The south region is still a bit flat, um, but the new\n"
+   },
+   {
+    "t": 14.4,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 3.96,
+      "text": "So I had a look at the quarterly numbers this morning, and they are honestly better than"
+     },
+     {
+      "start": 3.96,
+      "end": 5.0,
+      "text": "I expected."
+     },
+     {
+      "start": 5.0,
+      "end": 10.6,
+      "text": "Sales in the north region went up by about 12%, which is really good news for the team."
+     },
+     {
+      "start": 10.6,
+      "end": 14.4,
+      "text": "The south region is still a bit flat, um, but the new pricing only."
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:03.960]   So I had a look at the quarterly numbers this morning, and they are honestly better than\n[00:00:03.960 --> 00:00:05.000]   I expected.\n[00:00:05.000 --> 00:00:10.600]   Sales in the north region went up by about 12%, which is really good news for the team.\n[00:00:10.600 --> 00:00:14.400]   The south region is still a bit flat, um, but the new pricing only.\n"
+   },
+   {
+    "t": 15.2,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 3.96,
+      "text": "So I had a look at the quarterly numbers this morning, and they are honestly better than"
+     },
+     {
+      "start": 3.96,
+      "end": 5.12,
+      "text": "I expected."
+     },
+     {
+      "start": 5.12,
+      "end": 10.6,
+      "text": "Sales in the north region went up by about 12%, which is really good news for the team."
+     },
+     {
+      "start": 10.6,
+      "end": 15.24,
+      "text": "The south region is still a bit flat, um, but the new pricing only started last month."
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:03.960]   So I had a look at the quarterly numbers this morning, and they are honestly better than\n[00:00:03.960 --> 00:00:05.120]   I expected.\n[00:00:05.120 --> 00:00:10.600]   Sales in the north region went up by about 12%, which is really good news for the team.\n[00:00:10.600 --> 00:00:15.240]   The south region is still a bit flat, um, but the new pricing only started last month.\n"
+   },
+   {
+    "t": 16.0,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 3.96,
+      "text": "So I had a look at the quarterly numbers this morning, and they are honestly better than"
+     },
+     {
+      "start": 3.96,
+      "end": 5.0,
+      "text": "I expected."
+     },
+     {
+      "start": 5.0,
+      "end": 10.6,
+      "text": "Sales in the north region went up by about 12%, which is really good news for the team."
+     },
+     {
+      "start": 10.6,
+      "end": 15.68,
+      "text": "The south region is still a bit flat, um, but the new pricing only started last month."
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:03.960]   So I had a look at the quarterly numbers this morning, and they are honestly better than\n[00:00:03.960 --> 00:00:05.000]   I expected.\n[00:00:05.000 --> 00:00:10.600]   Sales in the north region went up by about 12%, which is really good news for the team.\n[00:00:10.600 --> 00:00:15.680]   The south region is still a bit flat, um, but the new pricing only started last month.\n"
+   },
+   {
+    "t": 16.8,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 3.96,
+      "text": "So I had a look at the quarterly numbers this morning, and they are honestly better than"
+     },
+     {
+      "start": 3.96,
+      "end": 5.12,
+      "text": "I expected."
+     },
+     {
+      "start": 5.12,
+      "end": 10.6,
+      "text": "Sales in the north region went up by about 12%, which is really good news for the team."
+     },
+     {
+      "start": 10.6,
+      "end": 15.92,
+      "text": "The south region is still a bit flat, um, but the new pricing only started last month."
+     },
+     {
+      "start": 15.92,
+      "end": 16.68,
+      "text": "I think we should"
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:03.960]   So I had a look at the quarterly numbers this morning, and they are honestly better than\n[00:00:03.960 --> 00:00:05.120]   I expected.\n[00:00:05.120 --> 00:00:10.600]   Sales in the north region went up by about 12%, which is really good news for the team.\n[00:00:10.600 --> 00:00:15.920]   The south region is still a bit flat, um, but the new pricing only started last month.\n[00:00:15.920 --> 00:00:16.680]   I think we should\n"
+   },
+   {
+    "t": 17.6,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 3.96,
+      "text": "So I had a look at the quarterly numbers this morning, and they are honestly better than"
+     },
+     {
+      "start": 3.96,
+      "end": 5.12,
+      "text": "I expected."
+     },
+     {
+      "start": 5.12,
+      "end": 10.6,
+      "text": "Sales in the north region went up by about 12%, which is really good news for the team."
+     },
+     {
+      "start": 10.6,
+      "end": 15.94,
+      "text": "The south region is still a bit flat, um, but the new pricing only started last month."
+     },
+     {
+      "start": 15.94,
+      "end": 17.62,
+      "text": "I think we should give it until the end"
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:03.960]   So I had a look at the quarterly numbers this morning, and they are honestly better than\n[00:00:03.960 --> 00:00:05.120]   I expected.\n[00:00:05.120 --> 00:00:10.600]   Sales in the north region went up by about 12%, which is really good news for the team.\n[00:00:10.600 --> 00:00:15.940]   The south region is still a bit flat, um, but the new pricing only started last month.\n[00:00:15.940 --> 00:00:17.620]   I think we should give it until the end\n"
+   },
+   {
+    "t": 18.4,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 3.96,
+      "text": "So I had a look at the quarterly numbers this morning, and they are honestly better than"
+     },
+     {
+      "start": 3.96,
+      "end": 5.12,
+      "text": "I expected."
+     },
+     {
+      "start": 5.12,
+      "end": 10.6,
+      "text": "Sales in the north region went up by about 12%, which is really good news for the team."
+     },
+     {
+      "start": 10.6,
+      "end": 15.94,
+      "text": "The south region is still a bit flat, um, but the new pricing only started last month."
+     },
+     {
+      "start": 15.94,
+      "end": 18.4,
+      "text": "I think we should give it until the end of November before we start."
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:03.960]   So I had a look at the quarterly numbers this morning, and they are honestly better than\n[00:00:03.960 --> 00:00:05.120]   I expected.\n[00:00:05.120 --> 00:00:10.600]   Sales in the north region went up by about 12%, which is really good news for the team.\n[00:00:10.600 --> 00:00:15.940]   The south region is still a bit flat, um, but the new pricing only started last month.\n[00:00:15.940 --> 00:00:18.400]   I think we should give it until the end of November before we start.\n"
+   },
+   {
+    "t": 19.2,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 3.96,
+      "text": "So I had a look at the quarterly numbers this morning, and they are honestly better than"
+     },
+     {
+      "start": 3.96,
+      "end": 5.0,
+      "text": "I expected."
+     },
+     {
+      "start": 5.0,
+      "end": 10.6,
+      "text": "Sales in the north region went up by about 12%, which is really good news for the team."
+     },
+     {
+      "start": 10.6,
+      "end": 15.94,
+      "text": "The south region is still a bit flat, um, but the new pricing only started last month."
+     },
+     {
+      "start": 15.94,
+      "end": 19.24,
+      "text": "I think we should give it until the end of November before we change anything."
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:03.960]   So I had a look at the quarterly numbers this morning, and they are honestly better than\n[00:00:03.960 --> 00:00:05.000]   I expected.\n[00:00:05.000 --> 00:00:10.600]   Sales in the north region went up by about 12%, which is really good news for the team.\n[00:00:10.600 --> 00:00:15.940]   The south region is still a bit flat, um, but the new pricing only started last month.\n[00:00:15.940 --> 00:00:19.240]   I think we should give it until the end of November before we change anything.\n"
+   },
+   {
+    "t": 20.0,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 3.96,
+      "text": "So I had a look at the quarterly numbers this morning, and they are honestly better than"
+     },
+     {
+      "start": 3.96,
+      "end": 5.12,
+      "text": "I expected."
+     },
+     {
+      "start": 5.12,
+      "end": 10.6,
+      "text": "Sales in the north region went up by about 12%, which is really good news for the team."
+     },
+     {
+      "start": 10.6,
+      "end": 15.94,
+      "text": "The south region is still a bit flat, um, but the new pricing only started last month."
+     },
+     {
+      "start": 15.94,
+      "end": 20.0,
+      "text": "I think we should give it until the end of November before we change anything."
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:03.960]   So I had a look at the quarterly numbers this morning, and they are honestly better than\n[00:00:03.960 --> 00:00:05.120]   I expected.\n[00:00:05.120 --> 00:00:10.600]   Sales in the north region went up by about 12%, which is really good news for the team.\n[00:00:10.600 --> 00:00:15.940]   The south region is still a bit flat, um, but the new pricing only started last month.\n[00:00:15.940 --> 00:00:20.000]   I think we should give it until the end of November before we change anything.\n"
+   },
+   {
+    "t": 20.8,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 3.96,
+      "text": "So I had a look at the quarterly numbers this morning, and they are honestly better than"
+     },
+     {
+      "start": 3.96,
+      "end": 5.0,
+      "text": "I expected."
+     },
+     {
+      "start": 5.0,
+      "end": 10.6,
+      "text": "Sales in the north region went up by about 12%, which is really good news for the team."
+     },
+     {
+      "start": 10.6,
+      "end": 15.94,
+      "text": "The south region is still a bit flat, um, but the new pricing only started last month."
+     },
+     {
+      "start": 15.94,
+      "end": 19.88,
+      "text": "I think we should give it until the end of November before we change anything."
+     },
+     {
+      "start": 19.88,
+      "end": 20.8,
+      "text": "Can you put together a-"
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:03.960]   So I had a look at the quarterly numbers this morning, and they are honestly better than\n[00:00:03.960 --> 00:00:05.000]   I expected.\n[00:00:05.000 --> 00:00:10.600]   Sales in the north region went up by about 12%, which is really good news for the team.\n[00:00:10.600 --> 00:00:15.940]   The south region is still a bit flat, um, but the new pricing only started last month.\n[00:00:15.940 --> 00:00:19.880]   I think we should give it until the end of November before we change anything.\n[00:00:19.880 --> 00:00:20.800]   Can you put together a-\n"
+   },
+   {
+    "t": 21.6,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 30.0,
+      "text": ", and so I had a look at the quarterly numbers this morning, and they are honestly better than I expected. Sales in the North region went up by about 12%, which is really good news for the team. The South region is still a bit flat, um, but the new pricing only started last month. I think we should give it until the end of November before we change anything. Can you put together a short summary"
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:30.000]  , and so I had a look at the quarterly numbers this morning, and they are honestly better than I expected. Sales in the North region went up by about 12%, which is really good news for the team. The South region is still a bit flat, um, but the new pricing only started last month. I think we should give it until the end of November before we change anything. Can you put together a short summary\n"
+   },
+   {
+    "t": 22.4,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 30.0,
+      "text": ", \"So I had a look at the quarterly numbers this morning, and they are honestly better than I expected. Sales in the north region went up by about 12%, which is really good news for the team. The south region is still a bit flat, um, but the new pricing only started last month. I think we should give it until the end of November before we change anything. Can you put together a short summary for Friday's"
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:30.000]  , \"So I had a look at the quarterly numbers this morning, and they are honestly better than I expected. Sales in the north region went up by about 12%, which is really good news for the team. The south region is still a bit flat, um, but the new pricing only started last month. I think we should give it until the end of November before we change anything. Can you put together a short summary for Friday's\n"
+   },
+   {
+    "t": 23.2,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 30.0,
+      "text": ", \"So I had a look at the quarterly numbers this morning, and they are honestly better than I expected. Sales in the north region went up by about 12%, which is really good news for the team. The south region is still a bit flat, um, but the new pricing only started last month. I think we should give it until the end of November before we change anything. Can you put together a short summary for Friday's meeting and send"
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:30.000]  , \"So I had a look at the quarterly numbers this morning, and they are honestly better than I expected. Sales in the north region went up by about 12%, which is really good news for the team. The south region is still a bit flat, um, but the new pricing only started last month. I think we should give it until the end of November before we change anything. Can you put together a short summary for Friday's meeting and send\n"
+   },
+   {
+    "t": 24.0,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 30.0,
+      "text": ", and so I had a look at the quarterly numbers this morning, and they are honestly better than I expected. Sales in the north region went up by about 12%, which is really good news for the team. The south region is still a bit flat, um, but the new pricing only started last month. I think we should give it until the end of November before we change anything. Can you put together a short summary for Friday's meeting and send it to Sarah and"
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:30.000]  , and so I had a look at the quarterly numbers this morning, and they are honestly better than I expected. Sales in the north region went up by about 12%, which is really good news for the team. The south region is still a bit flat, um, but the new pricing only started last month. I think we should give it until the end of November before we change anything. Can you put together a short summary for Friday's meeting and send it to Sarah and\n"
+   },
+   {
+    "t": 24.8,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 30.0,
+      "text": ", so I had a look at the quarterly numbers this morning, and they are honestly better than I expected. Sales in the north region went up by about 12%, which is really good news for the team. The south region is still a bit flat, um, but the new pricing only started last month. I think we should give it until the end of November before we change anything. Can you put together a short summary for Friday's meeting and send it to Sarah and Tom?"
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:30.000]  , so I had a look at the quarterly numbers this morning, and they are honestly better than I expected. Sales in the north region went up by about 12%, which is really good news for the team. The south region is still a bit flat, um, but the new pricing only started last month. I think we should give it until the end of November before we change anything. Can you put together a short summary for Friday's meeting and send it to Sarah and Tom?\n"
+   },
+   {
+    "t": 25.6,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 30.0,
+      "text": ", so I had a look at the quarterly numbers this morning, and they are honestly better than I expected. Sales in the north region went up by about 12%, which is really good news for the team. The south region is still a bit flat, um, but the new pricing only started last month. I think we should give it until the end of November before we change anything. Can you put together a short summary for Friday's meeting and send it to Sarah and Tom? Actually, I mean"
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:30.000]  , so I had a look at the quarterly numbers this morning, and they are honestly better than I expected. Sales in the north region went up by about 12%, which is really good news for the team. The south region is still a bit flat, um, but the new pricing only started last month. I think we should give it until the end of November before we change anything. Can you put together a short summary for Friday's meeting and send it to Sarah and Tom? Actually, I mean\n"
+   },
+   {
+    "t": 26.4,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 30.0,
+      "text": ", so I had a look at the quarterly numbers this morning, and they are honestly better than I expected. Sales in the north region went up by about 12%, which is really good news for the team. The south region is still a bit flat, um, but the new pricing only started last month. I think we should give it until the end of November before we change anything. Can you put together a short summary for Friday's meeting and send it to Sarah and Tom? Actually, I mean Thursday's meeting."
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:30.000]  , so I had a look at the quarterly numbers this morning, and they are honestly better than I expected. Sales in the north region went up by about 12%, which is really good news for the team. The south region is still a bit flat, um, but the new pricing only started last month. I think we should give it until the end of November before we change anything. Can you put together a short summary for Friday's meeting and send it to Sarah and Tom? Actually, I mean Thursday's meeting.\n"
+   },
+   {
+    "t": 27.2,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 30.0,
+      "text": ", so I had a look at the quarterly numbers this morning, and they are honestly better than I expected. Sales in the north region went up by about 12%, which is really good news for the team. The south region is still a bit flat, um, but the new pricing only started last month. I think we should give it until the end of November before we change anything. Can you put together a short summary for Friday's meeting and send it to Sarah and Tom? Actually, I mean Thursday's meeting, not Friday."
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:30.000]  , so I had a look at the quarterly numbers this morning, and they are honestly better than I expected. Sales in the north region went up by about 12%, which is really good news for the team. The south region is still a bit flat, um, but the new pricing only started last month. I think we should give it until the end of November before we change anything. Can you put together a short summary for Friday's meeting and send it to Sarah and Tom? Actually, I mean Thursday's meeting, not Friday.\n"
+   }
+  ],
+  "final_segments": [
+   {
+    "start": 0.0,
+    "end": 3.96,
+    "text": "So I had a look at the quarterly numbers this morning, and they are honestly better than"
+   },
+   {
+    "start": 3.96,
+    "end": 5.0,
+    "text": "I expected."
+   },
+   {
+    "start": 5.0,
+    "end": 10.6,
+    "text": "Sales in the north region went up by about 12%, which is really good news for the team."
+   },
+   {
+    "start": 10.6,
+    "end": 15.94,
+    "text": "The south region is still a bit flat, um, but the new pricing only started last month."
+   },
+   {
+    "start": 15.94,
+    "end": 20.0,
+    "text": "I think we should give it until the end of November before we change anything."
+   },
+   {
+    "start": 20.0,
+    "end": 24.64,
+    "text": "Can you put together a short summary for Friday's meeting and send it to Sarah and Tom?"
+   },
+   {
+    "start": 24.64,
+    "end": 27.6,
+    "text": "Actually, I mean Thursday's meeting, not Friday."
+   }
+  ],
+  "final_stdout": "\n[00:00:00.000 --> 00:00:03.960]   So I had a look at the quarterly numbers this morning, and they are honestly better than\n[00:00:03.960 --> 00:00:05.000]   I expected.\n[00:00:05.000 --> 00:00:10.600]   Sales in the north region went up by about 12%, which is really good news for the team.\n[00:00:10.600 --> 00:00:15.940]   The south region is still a bit flat, um, but the new pricing only started last month.\n[00:00:15.940 --> 00:00:20.000]   I think we should give it until the end of November before we change anything.\n[00:00:20.000 --> 00:00:24.640]   Can you put together a short summary for Friday's meeting and send it to Sarah and Tom?\n[00:00:24.640 --> 00:00:27.600]   Actually, I mean Thursday's meeting, not Friday.\n",
+  "duration_s": 27.59
+ },
+ "long-scratch": {
+  "interval_s": 0.8,
+  "partials": [
+   {
+    "t": 0.8,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 0.8,
+      "text": "I want to book the..."
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:00.800]   I want to book the...\n"
+   },
+   {
+    "t": 1.6,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 1.62,
+      "text": "I want to book the venue for the end of year."
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:01.620]   I want to book the venue for the end of year.\n"
+   },
+   {
+    "t": 2.4,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 2.36,
+      "text": "I want to book the venue for the end of year party."
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:02.360]   I want to book the venue for the end of year party.\n"
+   },
+   {
+    "t": 3.2,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 3.22,
+      "text": "I want to book the venue for the end of year party, it needs to..."
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:03.220]   I want to book the venue for the end of year party, it needs to...\n"
+   },
+   {
+    "t": 4.0,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 4.0,
+      "text": "I want to book the venue for the end of year party, it needs to fit about 40 p.m."
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:04.000]   I want to book the venue for the end of year party, it needs to fit about 40 p.m.\n"
+   },
+   {
+    "t": 4.8,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 4.6,
+      "text": "I want to book the venue for the end-of-year party, it needs to fit about 40 people and"
+     },
+     {
+      "start": 4.6,
+      "end": 4.76,
+      "text": "have"
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:04.600]   I want to book the venue for the end-of-year party, it needs to fit about 40 people and\n[00:00:04.600 --> 00:00:04.760]   have\n"
+   },
+   {
+    "t": 5.6,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 4.62,
+      "text": "I want to book the venue for the end of year party, it needs to fit about 40 people and"
+     },
+     {
+      "start": 4.62,
+      "end": 5.64,
+      "text": "have decent parking."
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:04.620]   I want to book the venue for the end of year party, it needs to fit about 40 people and\n[00:00:04.620 --> 00:00:05.640]   have decent parking.\n"
+   },
+   {
+    "t": 6.4,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 4.6,
+      "text": "I want to book the venue for the end of year party, it needs to fit about 40 people and"
+     },
+     {
+      "start": 4.6,
+      "end": 6.0,
+      "text": "have decent parking."
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:04.600]   I want to book the venue for the end of year party, it needs to fit about 40 people and\n[00:00:04.600 --> 00:00:06.000]   have decent parking.\n"
+   },
+   {
+    "t": 7.2,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 4.6,
+      "text": "I want to book the venue for the end of year party, it needs to fit about 40 people and"
+     },
+     {
+      "start": 4.6,
+      "end": 7.26,
+      "text": "have decent parking, the place on George Street"
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:04.600]   I want to book the venue for the end of year party, it needs to fit about 40 people and\n[00:00:04.600 --> 00:00:07.260]   have decent parking, the place on George Street\n"
+   },
+   {
+    "t": 8.0,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 4.6,
+      "text": "I want to book the venue for the end-of-year party, it needs to fit about 40 people and"
+     },
+     {
+      "start": 4.6,
+      "end": 6.06,
+      "text": "have decent parking."
+     },
+     {
+      "start": 6.06,
+      "end": 7.96,
+      "text": "The place on George Street looked good when"
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:04.600]   I want to book the venue for the end-of-year party, it needs to fit about 40 people and\n[00:00:04.600 --> 00:00:06.060]   have decent parking.\n[00:00:06.060 --> 00:00:07.960]   The place on George Street looked good when\n"
+   },
+   {
+    "t": 8.8,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 4.6,
+      "text": "I want to book the venue for the end of year party, it needs to fit about 40 people and"
+     },
+     {
+      "start": 4.6,
+      "end": 6.06,
+      "text": "have decent parking."
+     },
+     {
+      "start": 6.06,
+      "end": 8.8,
+      "text": "The place on George Street looked good when we went past it."
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:04.600]   I want to book the venue for the end of year party, it needs to fit about 40 people and\n[00:00:04.600 --> 00:00:06.060]   have decent parking.\n[00:00:06.060 --> 00:00:08.800]   The place on George Street looked good when we went past it.\n"
+   },
+   {
+    "t": 9.6,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 4.6,
+      "text": "I want to book the venue for the end of year party, it needs to fit about 40 people and"
+     },
+     {
+      "start": 4.6,
+      "end": 6.04,
+      "text": "have decent parking."
+     },
+     {
+      "start": 6.04,
+      "end": 9.56,
+      "text": "The place on George Street looked good when we went past it last week."
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:04.600]   I want to book the venue for the end of year party, it needs to fit about 40 people and\n[00:00:04.600 --> 00:00:06.040]   have decent parking.\n[00:00:06.040 --> 00:00:09.560]   The place on George Street looked good when we went past it last week.\n"
+   },
+   {
+    "t": 10.4,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 4.6,
+      "text": "I want to book the venue for the end of year party, it needs to fit about 40 people and"
+     },
+     {
+      "start": 4.6,
+      "end": 6.06,
+      "text": "have decent parking."
+     },
+     {
+      "start": 6.06,
+      "end": 10.38,
+      "text": "The place on George Street looked good when we went past it last week, we could also"
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:04.600]   I want to book the venue for the end of year party, it needs to fit about 40 people and\n[00:00:04.600 --> 00:00:06.060]   have decent parking.\n[00:00:06.060 --> 00:00:10.380]   The place on George Street looked good when we went past it last week, we could also\n"
+   },
+   {
+    "t": 11.2,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 4.6,
+      "text": "I want to book the venue for the end of year party, it needs to fit about 40 people and"
+     },
+     {
+      "start": 4.6,
+      "end": 6.06,
+      "text": "have decent parking."
+     },
+     {
+      "start": 6.06,
+      "end": 9.88,
+      "text": "The place on George Street looked good when we went past it last week."
+     },
+     {
+      "start": 9.88,
+      "end": 11.24,
+      "text": "We could also do a set menu."
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:04.600]   I want to book the venue for the end of year party, it needs to fit about 40 people and\n[00:00:04.600 --> 00:00:06.060]   have decent parking.\n[00:00:06.060 --> 00:00:09.880]   The place on George Street looked good when we went past it last week.\n[00:00:09.880 --> 00:00:11.240]   We could also do a set menu.\n"
+   },
+   {
+    "t": 12.0,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 4.6,
+      "text": "I want to book the venue for the end-of-year party, it needs to fit about 40 people and"
+     },
+     {
+      "start": 4.6,
+      "end": 6.06,
+      "text": "have decent parking."
+     },
+     {
+      "start": 6.06,
+      "end": 9.88,
+      "text": "The place on George Street looked good when we went past it last week."
+     },
+     {
+      "start": 9.88,
+      "end": 12.02,
+      "text": "We could also do a set menu so nobody..."
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:04.600]   I want to book the venue for the end-of-year party, it needs to fit about 40 people and\n[00:00:04.600 --> 00:00:06.060]   have decent parking.\n[00:00:06.060 --> 00:00:09.880]   The place on George Street looked good when we went past it last week.\n[00:00:09.880 --> 00:00:12.020]   We could also do a set menu so nobody...\n"
+   },
+   {
+    "t": 12.8,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 4.6,
+      "text": "I want to book the venue for the end of year party, it needs to fit about 40 people and"
+     },
+     {
+      "start": 4.6,
+      "end": 6.06,
+      "text": "have decent parking."
+     },
+     {
+      "start": 6.06,
+      "end": 9.88,
+      "text": "The place on George Street looked good when we went past it last week."
+     },
+     {
+      "start": 9.88,
+      "end": 12.8,
+      "text": "We could also do a set menu so nobody has to order it."
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:04.600]   I want to book the venue for the end of year party, it needs to fit about 40 people and\n[00:00:04.600 --> 00:00:06.060]   have decent parking.\n[00:00:06.060 --> 00:00:09.880]   The place on George Street looked good when we went past it last week.\n[00:00:09.880 --> 00:00:12.800]   We could also do a set menu so nobody has to order it.\n"
+   },
+   {
+    "t": 13.6,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 4.6,
+      "text": "I want to book the venue for the end of year party, it needs to fit about 40 people and"
+     },
+     {
+      "start": 4.6,
+      "end": 6.06,
+      "text": "have decent parking."
+     },
+     {
+      "start": 6.06,
+      "end": 9.88,
+      "text": "The place on George Street looked good when we went past it last week."
+     },
+     {
+      "start": 9.88,
+      "end": 13.52,
+      "text": "We could also do a set menu so nobody has to order at the table."
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:04.600]   I want to book the venue for the end of year party, it needs to fit about 40 people and\n[00:00:04.600 --> 00:00:06.060]   have decent parking.\n[00:00:06.060 --> 00:00:09.880]   The place on George Street looked good when we went past it last week.\n[00:00:09.880 --> 00:00:13.520]   We could also do a set menu so nobody has to order at the table.\n"
+   },
+   {
+    "t": 14.4,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 4.6,
+      "text": "I want to book the venue for the end of year party, it needs to fit about 40 people and"
+     },
+     {
+      "start": 4.6,
+      "end": 6.06,
+      "text": "have decent parking."
+     },
+     {
+      "start": 6.06,
+      "end": 9.88,
+      "text": "The place on George Street looked good when we went past it last week."
+     },
+     {
+      "start": 9.88,
+      "end": 13.72,
+      "text": "We could also do a set menu so nobody has to order at the table."
+     },
+     {
+      "start": 13.72,
+      "end": 14.38,
+      "text": "Scratch that"
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:04.600]   I want to book the venue for the end of year party, it needs to fit about 40 people and\n[00:00:04.600 --> 00:00:06.060]   have decent parking.\n[00:00:06.060 --> 00:00:09.880]   The place on George Street looked good when we went past it last week.\n[00:00:09.880 --> 00:00:13.720]   We could also do a set menu so nobody has to order at the table.\n[00:00:13.720 --> 00:00:14.380]   Scratch that\n"
+   },
+   {
+    "t": 15.2,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 4.6,
+      "text": "I want to book the venue for the end of year party, it needs to fit about 40 people and"
+     },
+     {
+      "start": 4.6,
+      "end": 6.04,
+      "text": "have decent parking."
+     },
+     {
+      "start": 6.04,
+      "end": 9.88,
+      "text": "The place on George Street looked good when we went past it last week."
+     },
+     {
+      "start": 9.88,
+      "end": 13.72,
+      "text": "We could also do a set menu so nobody has to order at the table."
+     },
+     {
+      "start": 13.72,
+      "end": 15.04,
+      "text": "Scratch that last bit."
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:04.600]   I want to book the venue for the end of year party, it needs to fit about 40 people and\n[00:00:04.600 --> 00:00:06.040]   have decent parking.\n[00:00:06.040 --> 00:00:09.880]   The place on George Street looked good when we went past it last week.\n[00:00:09.880 --> 00:00:13.720]   We could also do a set menu so nobody has to order at the table.\n[00:00:13.720 --> 00:00:15.040]   Scratch that last bit.\n"
+   },
+   {
+    "t": 16.0,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 2.68,
+      "text": "I want to book the venue for the end of year party."
+     },
+     {
+      "start": 2.68,
+      "end": 6.06,
+      "text": "It needs to fit about 40 people and have decent parking."
+     },
+     {
+      "start": 6.06,
+      "end": 9.88,
+      "text": "The place on George Street looked good when we went past it last week."
+     },
+     {
+      "start": 9.88,
+      "end": 13.7,
+      "text": "We could also do a set menu so nobody has to order at the table."
+     },
+     {
+      "start": 13.7,
+      "end": 16.04,
+      "text": "Scratch that last bit, people like Tuesday."
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:02.680]   I want to book the venue for the end of year party.\n[00:00:02.680 --> 00:00:06.060]   It needs to fit about 40 people and have decent parking.\n[00:00:06.060 --> 00:00:09.880]   The place on George Street looked good when we went past it last week.\n[00:00:09.880 --> 00:00:13.700]   We could also do a set menu so nobody has to order at the table.\n[00:00:13.700 --> 00:00:16.040]   Scratch that last bit, people like Tuesday.\n"
+   },
+   {
+    "t": 16.8,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 4.6,
+      "text": "I want to book the venue for the end of year party. It needs to fit about 40 people and"
+     },
+     {
+      "start": 4.6,
+      "end": 9.88,
+      "text": "have decent parking. The place on George Street looked good when we went past it last week."
+     },
+     {
+      "start": 9.88,
+      "end": 15.48,
+      "text": "We could also do a set menu so nobody has to order at the table. Scratch that last bit,"
+     },
+     {
+      "start": 15.48,
+      "end": 16.8,
+      "text": "people like choosing their own food."
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:04.600]   I want to book the venue for the end of year party. It needs to fit about 40 people and\n[00:00:04.600 --> 00:00:09.880]   have decent parking. The place on George Street looked good when we went past it last week.\n[00:00:09.880 --> 00:00:15.480]   We could also do a set menu so nobody has to order at the table. Scratch that last bit,\n[00:00:15.480 --> 00:00:16.800]   people like choosing their own food.\n"
+   },
+   {
+    "t": 17.6,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 4.6,
+      "text": "I want to book the venue for the end of year party. It needs to fit about 40 people and"
+     },
+     {
+      "start": 4.6,
+      "end": 9.88,
+      "text": "have decent parking. The place on George Street looked good when we went past it last week."
+     },
+     {
+      "start": 9.88,
+      "end": 15.48,
+      "text": "We could also do a set menu so nobody has to order at the table. Scratch that last bit,"
+     },
+     {
+      "start": 15.48,
+      "end": 17.28,
+      "text": "people like, choosing their own food."
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:04.600]   I want to book the venue for the end of year party. It needs to fit about 40 people and\n[00:00:04.600 --> 00:00:09.880]   have decent parking. The place on George Street looked good when we went past it last week.\n[00:00:09.880 --> 00:00:15.480]   We could also do a set menu so nobody has to order at the table. Scratch that last bit,\n[00:00:15.480 --> 00:00:17.280]   people like, choosing their own food.\n"
+   },
+   {
+    "t": 18.4,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 4.6,
+      "text": "I want to book the venue for the end of year party. It needs to fit about 40 people and"
+     },
+     {
+      "start": 4.6,
+      "end": 9.88,
+      "text": "have decent parking. The place on George Street looked good when we went past it last week."
+     },
+     {
+      "start": 9.88,
+      "end": 13.76,
+      "text": "We could also do a set menu so nobody has to order at the table."
+     },
+     {
+      "start": 13.76,
+      "end": 17.4,
+      "text": "Scratch that last bit, people like choosing their own food."
+     },
+     {
+      "start": 17.4,
+      "end": 18.4,
+      "text": "Let me know what you think by my name."
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:04.600]   I want to book the venue for the end of year party. It needs to fit about 40 people and\n[00:00:04.600 --> 00:00:09.880]   have decent parking. The place on George Street looked good when we went past it last week.\n[00:00:09.880 --> 00:00:13.760]   We could also do a set menu so nobody has to order at the table.\n[00:00:13.760 --> 00:00:17.400]   Scratch that last bit, people like choosing their own food.\n[00:00:17.400 --> 00:00:18.400]   Let me know what you think by my name.\n"
+   }
+  ],
+  "final_segments": [
+   {
+    "start": 0.0,
+    "end": 4.6,
+    "text": "I want to book the venue for the end of year party. It needs to fit about 40 people and"
+   },
+   {
+    "start": 4.6,
+    "end": 9.88,
+    "text": "have decent parking. The place on George Street looked good when we went past it last week."
+   },
+   {
+    "start": 9.88,
+    "end": 13.76,
+    "text": "We could also do a set menu so nobody has to order at the table."
+   },
+   {
+    "start": 13.76,
+    "end": 18.22,
+    "text": "Scratch that last bit, people like, choosing their own food. Let me know what you think"
+   },
+   {
+    "start": 18.22,
+    "end": 18.94,
+    "text": "by Monday."
+   }
+  ],
+  "final_stdout": "\n[00:00:00.000 --> 00:00:04.600]   I want to book the venue for the end of year party. It needs to fit about 40 people and\n[00:00:04.600 --> 00:00:09.880]   have decent parking. The place on George Street looked good when we went past it last week.\n[00:00:09.880 --> 00:00:13.760]   We could also do a set menu so nobody has to order at the table.\n[00:00:13.760 --> 00:00:18.220]   Scratch that last bit, people like, choosing their own food. Let me know what you think\n[00:00:18.220 --> 00:00:18.940]   by Monday.\n",
+  "duration_s": 18.93
+ },
+ "long-plain": {
+  "interval_s": 0.8,
+  "partials": [
+   {
+    "t": 0.8,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 0.74,
+      "text": "Hey Kazey!"
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:00.740]   Hey Kazey!\n"
+   },
+   {
+    "t": 1.6,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 1.6,
+      "text": "Hey Kazey, Thanks for sending this video."
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:01.600]   Hey Kazey, Thanks for sending this video.\n"
+   },
+   {
+    "t": 2.4,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 2.4,
+      "text": "Hey Kazey, thanks for sending the draft through your site."
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:02.400]   Hey Kazey, thanks for sending the draft through your site.\n"
+   },
+   {
+    "t": 3.2,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 3.2,
+      "text": "Hey Kazey, Thanks for sending the draft through yesterday."
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:03.200]   Hey Kazey, Thanks for sending the draft through yesterday.\n"
+   },
+   {
+    "t": 4.0,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 4.0,
+      "text": "Hey Kazey, thanks for sending the draft through yesterday. I read it on the train."
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:04.000]   Hey Kazey, thanks for sending the draft through yesterday. I read it on the train.\n"
+   },
+   {
+    "t": 4.8,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 4.76,
+      "text": "Hey Kazey, thanks for sending the draft through yesterday. I read it on the train this morning"
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:04.760]   Hey Kazey, thanks for sending the draft through yesterday. I read it on the train this morning\n"
+   },
+   {
+    "t": 5.6,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 4.76,
+      "text": "Hey Kazey, thanks for sending the draft through yesterday. I read it on the train this morning"
+     },
+     {
+      "start": 4.76,
+      "end": 5.4,
+      "text": "and I really"
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:04.760]   Hey Kazey, thanks for sending the draft through yesterday. I read it on the train this morning\n[00:00:04.760 --> 00:00:05.400]   and I really\n"
+   },
+   {
+    "t": 6.4,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 4.76,
+      "text": "Hey Kazey, thanks for sending the draft through yesterday. I read it on the train this morning"
+     },
+     {
+      "start": 4.76,
+      "end": 6.4,
+      "text": "and I really like the overalls"
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:04.760]   Hey Kazey, thanks for sending the draft through yesterday. I read it on the train this morning\n[00:00:04.760 --> 00:00:06.400]   and I really like the overalls\n"
+   },
+   {
+    "t": 7.2,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 7.0,
+      "text": "Hey Kazey, thanks for sending the draft through yesterday. I read it on the train this morning, and I really like the overall structure."
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:07.000]   Hey Kazey, thanks for sending the draft through yesterday. I read it on the train this morning, and I really like the overall structure.\n"
+   },
+   {
+    "t": 8.0,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 4.9,
+      "text": "Hey Kazey, thanks for sending the draft through yesterday. I read it on the train this morning,"
+     },
+     {
+      "start": 4.9,
+      "end": 7.32,
+      "text": "and I really like the overall structure."
+     },
+     {
+      "start": 7.32,
+      "end": 7.98,
+      "text": "The introduction"
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:04.900]   Hey Kazey, thanks for sending the draft through yesterday. I read it on the train this morning,\n[00:00:04.900 --> 00:00:07.320]   and I really like the overall structure.\n[00:00:07.320 --> 00:00:07.980]   The introduction\n"
+   },
+   {
+    "t": 8.8,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 8.76,
+      "text": "Hey Kazey, Thanks for sending the draft through yesterday. I read it on the train this morning, and I really like the overall structure. The introduction is strong."
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:08.760]   Hey Kazey, Thanks for sending the draft through yesterday. I read it on the train this morning, and I really like the overall structure. The introduction is strong.\n"
+   },
+   {
+    "t": 9.6,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 3.12,
+      "text": "Hey Kazey, thanks for sending the draft through yesterday."
+     },
+     {
+      "start": 3.12,
+      "end": 7.32,
+      "text": "I read it on the train this morning, and I really like the overall structure."
+     },
+     {
+      "start": 7.32,
+      "end": 9.48,
+      "text": "The introduction is strong, but the middle"
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:03.120]   Hey Kazey, thanks for sending the draft through yesterday.\n[00:00:03.120 --> 00:00:07.320]   I read it on the train this morning, and I really like the overall structure.\n[00:00:07.320 --> 00:00:09.480]   The introduction is strong, but the middle\n"
+   },
+   {
+    "t": 10.4,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 3.12,
+      "text": "Hey Kazey, thanks for sending the draft through yesterday."
+     },
+     {
+      "start": 3.12,
+      "end": 7.32,
+      "text": "I read it on the train this morning, and I really like the overall structure."
+     },
+     {
+      "start": 7.32,
+      "end": 10.44,
+      "text": "The introduction is strong, but the middle section about the butt"
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:03.120]   Hey Kazey, thanks for sending the draft through yesterday.\n[00:00:03.120 --> 00:00:07.320]   I read it on the train this morning, and I really like the overall structure.\n[00:00:07.320 --> 00:00:10.440]   The introduction is strong, but the middle section about the butt\n"
+   },
+   {
+    "t": 11.2,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 3.12,
+      "text": "Hey Kazey, thanks for sending the draft through yesterday."
+     },
+     {
+      "start": 3.12,
+      "end": 7.32,
+      "text": "I read it on the train this morning, and I really like the overall structure."
+     },
+     {
+      "start": 7.32,
+      "end": 11.12,
+      "text": "The introduction is strong, but the middle section about the budget could be a bit"
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:03.120]   Hey Kazey, thanks for sending the draft through yesterday.\n[00:00:03.120 --> 00:00:07.320]   I read it on the train this morning, and I really like the overall structure.\n[00:00:07.320 --> 00:00:11.120]   The introduction is strong, but the middle section about the budget could be a bit\n"
+   },
+   {
+    "t": 12.0,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 3.12,
+      "text": "Hey Kazey, thanks for sending the draft through yesterday."
+     },
+     {
+      "start": 3.12,
+      "end": 7.32,
+      "text": "I read it on the train this morning, and I really like the overall structure."
+     },
+     {
+      "start": 7.32,
+      "end": 12.0,
+      "text": "The introduction is strong, but the middle section about the budget could be a bit tighter."
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:03.120]   Hey Kazey, thanks for sending the draft through yesterday.\n[00:00:03.120 --> 00:00:07.320]   I read it on the train this morning, and I really like the overall structure.\n[00:00:07.320 --> 00:00:12.000]   The introduction is strong, but the middle section about the budget could be a bit tighter.\n"
+   },
+   {
+    "t": 12.8,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 3.12,
+      "text": "Hey Kazey, thanks for sending the draft through yesterday."
+     },
+     {
+      "start": 3.12,
+      "end": 7.32,
+      "text": "I read it on the train this morning, and I really like the overall structure."
+     },
+     {
+      "start": 7.32,
+      "end": 11.94,
+      "text": "The introduction is strong, but the middle section about the budget could be a bit tighter."
+     },
+     {
+      "start": 11.94,
+      "end": 12.78,
+      "text": "I would also move"
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:03.120]   Hey Kazey, thanks for sending the draft through yesterday.\n[00:00:03.120 --> 00:00:07.320]   I read it on the train this morning, and I really like the overall structure.\n[00:00:07.320 --> 00:00:11.940]   The introduction is strong, but the middle section about the budget could be a bit tighter.\n[00:00:11.940 --> 00:00:12.780]   I would also move\n"
+   },
+   {
+    "t": 13.6,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 4.8,
+      "text": "Hey Kazey, thanks for sending the draft through yesterday. I read it on the train this morning,"
+     },
+     {
+      "start": 4.8,
+      "end": 9.86,
+      "text": "and I really like the overall structure. The introduction is strong, but the middle section"
+     },
+     {
+      "start": 9.86,
+      "end": 13.64,
+      "text": "about the budget could be a bit tighter. I would also move the timeline to the end."
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:04.800]   Hey Kazey, thanks for sending the draft through yesterday. I read it on the train this morning,\n[00:00:04.800 --> 00:00:09.860]   and I really like the overall structure. The introduction is strong, but the middle section\n[00:00:09.860 --> 00:00:13.640]   about the budget could be a bit tighter. I would also move the timeline to the end.\n"
+   },
+   {
+    "t": 14.4,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 3.12,
+      "text": "Hey Kazey, thanks for sending the draft through yesterday."
+     },
+     {
+      "start": 3.12,
+      "end": 7.32,
+      "text": "I read it on the train this morning, and I really like the overall structure."
+     },
+     {
+      "start": 7.32,
+      "end": 11.92,
+      "text": "The introduction is strong, but the middle section about the budget could be a bit tighter."
+     },
+     {
+      "start": 11.92,
+      "end": 14.38,
+      "text": "I would also move the timeline to the end, so"
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:03.120]   Hey Kazey, thanks for sending the draft through yesterday.\n[00:00:03.120 --> 00:00:07.320]   I read it on the train this morning, and I really like the overall structure.\n[00:00:07.320 --> 00:00:11.920]   The introduction is strong, but the middle section about the budget could be a bit tighter.\n[00:00:11.920 --> 00:00:14.380]   I would also move the timeline to the end, so\n"
+   },
+   {
+    "t": 15.2,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 3.12,
+      "text": "Hey Kazey, thanks for sending the draft through yesterday."
+     },
+     {
+      "start": 3.12,
+      "end": 7.32,
+      "text": "I read it on the train this morning, and I really like the overall structure."
+     },
+     {
+      "start": 7.32,
+      "end": 11.92,
+      "text": "The introduction is strong, but the middle section about the budget could be a bit tighter."
+     },
+     {
+      "start": 11.92,
+      "end": 15.12,
+      "text": "I would also move the timeline to the end, so the reader gets"
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:03.120]   Hey Kazey, thanks for sending the draft through yesterday.\n[00:00:03.120 --> 00:00:07.320]   I read it on the train this morning, and I really like the overall structure.\n[00:00:07.320 --> 00:00:11.920]   The introduction is strong, but the middle section about the budget could be a bit tighter.\n[00:00:11.920 --> 00:00:15.120]   I would also move the timeline to the end, so the reader gets\n"
+   },
+   {
+    "t": 16.0,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 3.12,
+      "text": "Hey Kazey, thanks for sending the draft through yesterday."
+     },
+     {
+      "start": 3.12,
+      "end": 7.32,
+      "text": "I read it on the train this morning, and I really like the overall structure."
+     },
+     {
+      "start": 7.32,
+      "end": 11.92,
+      "text": "The introduction is strong, but the middle section about the budget could be a bit tighter."
+     },
+     {
+      "start": 11.92,
+      "end": 16.04,
+      "text": "I would also move the timeline to the end, so the reader gets the main argument."
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:03.120]   Hey Kazey, thanks for sending the draft through yesterday.\n[00:00:03.120 --> 00:00:07.320]   I read it on the train this morning, and I really like the overall structure.\n[00:00:07.320 --> 00:00:11.920]   The introduction is strong, but the middle section about the budget could be a bit tighter.\n[00:00:11.920 --> 00:00:16.040]   I would also move the timeline to the end, so the reader gets the main argument.\n"
+   },
+   {
+    "t": 16.8,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 3.12,
+      "text": "Hey Kazey, thanks for sending the draft through yesterday."
+     },
+     {
+      "start": 3.12,
+      "end": 7.32,
+      "text": "I read it on the train this morning, and I really like the overall structure."
+     },
+     {
+      "start": 7.32,
+      "end": 11.94,
+      "text": "The introduction is strong, but the middle section about the budget could be a bit tighter."
+     },
+     {
+      "start": 11.94,
+      "end": 16.6,
+      "text": "I would also move the timeline to the end, so the reader gets the main argument first."
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:03.120]   Hey Kazey, thanks for sending the draft through yesterday.\n[00:00:03.120 --> 00:00:07.320]   I read it on the train this morning, and I really like the overall structure.\n[00:00:07.320 --> 00:00:11.940]   The introduction is strong, but the middle section about the budget could be a bit tighter.\n[00:00:11.940 --> 00:00:16.600]   I would also move the timeline to the end, so the reader gets the main argument first.\n"
+   },
+   {
+    "t": 17.6,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 4.9,
+      "text": "Hey Kazey, thanks for sending the draft through yesterday. I read it on the train this morning,"
+     },
+     {
+      "start": 4.9,
+      "end": 9.84,
+      "text": "and I really like the overall structure. The introduction is strong, but the middle section"
+     },
+     {
+      "start": 9.84,
+      "end": 14.38,
+      "text": "about the budget could be a bit tighter. I would also move the timeline to the end, so"
+     },
+     {
+      "start": 14.38,
+      "end": 17.62,
+      "text": "the reader gets the main argument first. Let me know if you"
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:04.900]   Hey Kazey, thanks for sending the draft through yesterday. I read it on the train this morning,\n[00:00:04.900 --> 00:00:09.840]   and I really like the overall structure. The introduction is strong, but the middle section\n[00:00:09.840 --> 00:00:14.380]   about the budget could be a bit tighter. I would also move the timeline to the end, so\n[00:00:14.380 --> 00:00:17.620]   the reader gets the main argument first. Let me know if you\n"
+   },
+   {
+    "t": 18.4,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 3.12,
+      "text": "Hey Kazey, thanks for sending the draft through yesterday."
+     },
+     {
+      "start": 3.12,
+      "end": 7.32,
+      "text": "I read it on the train this morning, and I really like the overall structure."
+     },
+     {
+      "start": 7.32,
+      "end": 11.92,
+      "text": "The introduction is strong, but the middle section about the budget could be a bit tighter."
+     },
+     {
+      "start": 11.92,
+      "end": 17.0,
+      "text": "I would also move the timeline to the end, so the reader gets the main argument first."
+     },
+     {
+      "start": 17.0,
+      "end": 18.44,
+      "text": "Let me know if you want to go through it."
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:03.120]   Hey Kazey, thanks for sending the draft through yesterday.\n[00:00:03.120 --> 00:00:07.320]   I read it on the train this morning, and I really like the overall structure.\n[00:00:07.320 --> 00:00:11.920]   The introduction is strong, but the middle section about the budget could be a bit tighter.\n[00:00:11.920 --> 00:00:17.000]   I would also move the timeline to the end, so the reader gets the main argument first.\n[00:00:17.000 --> 00:00:18.440]   Let me know if you want to go through it.\n"
+   },
+   {
+    "t": 19.2,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 3.12,
+      "text": "Hey Kazey, thanks for sending the draft through yesterday."
+     },
+     {
+      "start": 3.12,
+      "end": 7.32,
+      "text": "I read it on the train this morning, and I really like the overall structure."
+     },
+     {
+      "start": 7.32,
+      "end": 11.94,
+      "text": "The introduction is strong, but the middle section about the budget could be a bit tighter."
+     },
+     {
+      "start": 11.94,
+      "end": 17.0,
+      "text": "I would also move the timeline to the end, so the reader gets the main argument first."
+     },
+     {
+      "start": 17.0,
+      "end": 19.24,
+      "text": "Let me know if you want to go through it together on a call."
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:03.120]   Hey Kazey, thanks for sending the draft through yesterday.\n[00:00:03.120 --> 00:00:07.320]   I read it on the train this morning, and I really like the overall structure.\n[00:00:07.320 --> 00:00:11.940]   The introduction is strong, but the middle section about the budget could be a bit tighter.\n[00:00:11.940 --> 00:00:17.000]   I would also move the timeline to the end, so the reader gets the main argument first.\n[00:00:17.000 --> 00:00:19.240]   Let me know if you want to go through it together on a call.\n"
+   },
+   {
+    "t": 20.0,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 3.12,
+      "text": "Hey Kazey, thanks for sending the draft through yesterday."
+     },
+     {
+      "start": 3.12,
+      "end": 7.32,
+      "text": "I read it on the train this morning, and I really like the overall structure."
+     },
+     {
+      "start": 7.32,
+      "end": 11.92,
+      "text": "The introduction is strong, but the middle section about the budget could be a bit tighter."
+     },
+     {
+      "start": 11.92,
+      "end": 17.02,
+      "text": "I would also move the timeline to the end, so the reader gets the main argument first."
+     },
+     {
+      "start": 17.02,
+      "end": 20.04,
+      "text": "Let me know if you want to go through it together on a call later this week."
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:03.120]   Hey Kazey, thanks for sending the draft through yesterday.\n[00:00:03.120 --> 00:00:07.320]   I read it on the train this morning, and I really like the overall structure.\n[00:00:07.320 --> 00:00:11.920]   The introduction is strong, but the middle section about the budget could be a bit tighter.\n[00:00:11.920 --> 00:00:17.020]   I would also move the timeline to the end, so the reader gets the main argument first.\n[00:00:17.020 --> 00:00:20.040]   Let me know if you want to go through it together on a call later this week.\n"
+   }
+  ],
+  "final_segments": [
+   {
+    "start": 0.0,
+    "end": 4.76,
+    "text": "Hey Kazey, thanks for sending the draft through yesterday. I read it on the train this morning"
+   },
+   {
+    "start": 4.76,
+    "end": 9.84,
+    "text": "and I really like the overall structure. The introduction is strong, but the middle section"
+   },
+   {
+    "start": 9.84,
+    "end": 14.38,
+    "text": "about the budget could be a bit tighter. I would also move the timeline to the end, so"
+   },
+   {
+    "start": 14.38,
+    "end": 18.82,
+    "text": "the reader gets the main argument first. Let me know if you want to go through it together"
+   },
+   {
+    "start": 18.82,
+    "end": 20.3,
+    "text": "on a call later this week."
+   }
+  ],
+  "final_stdout": "\n[00:00:00.000 --> 00:00:04.760]   Hey Kazey, thanks for sending the draft through yesterday. I read it on the train this morning\n[00:00:04.760 --> 00:00:09.840]   and I really like the overall structure. The introduction is strong, but the middle section\n[00:00:09.840 --> 00:00:14.380]   about the budget could be a bit tighter. I would also move the timeline to the end, so\n[00:00:14.380 --> 00:00:18.820]   the reader gets the main argument first. Let me know if you want to go through it together\n[00:00:18.820 --> 00:00:20.300]   on a call later this week.\n",
+  "duration_s": 20.31
+ },
+ "short-dictation": {
+  "interval_s": 0.8,
+  "partials": [
+   {
+    "t": 0.8,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 0.8,
+      "text": "Sounds good."
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:00.800]   Sounds good.\n"
+   },
+   {
+    "t": 1.6,
+    "segments": [
+     {
+      "start": 0.0,
+      "end": 1.6,
+      "text": "Sounds good, see you at the end."
+     }
+    ],
+    "stdout": "\n[00:00:00.000 --> 00:00:01.600]   Sounds good, see you at the end.\n"
+   }
+  ],
+  "final_segments": [
+   {
+    "start": 0.0,
+    "end": 2.08,
+    "text": "Sounds good, see you at 3."
+   }
+  ],
+  "final_stdout": "\n[00:00:00.000 --> 00:00:02.080]   Sounds good, see you at 3.\n",
+  "duration_s": 2.05
+ }
+}
