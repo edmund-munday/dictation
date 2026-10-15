@@ -1,0 +1,38 @@
+{
+ "dict-1": {
+  "spoken": "add word K, A, Z, E, Y.",
+  "whisper": "Add word K-A-Z-E-Y.",
+  "model": "ggml-small.en-q5_1",
+  "prompt": "default vocab prompt"
+ },
+ "dict-2": {
+  "spoken": "add word capital T E S S A.",
+  "whisper": "Add word capital T-E-S-S-A.",
+  "model": "ggml-small.en-q5_1",
+  "prompt": "default vocab prompt"
+ },
+ "dict-3": {
+  "spoken": "add word M O double S.",
+  "whisper": "Add word M-O-S-S.",
+  "model": "ggml-small.en-q5_1",
+  "prompt": "default vocab prompt"
+ },
+ "dict-4": {
+  "spoken": "add word capital G R O K space capital B O T.",
+  "whisper": "Add word capital G-R-O-K space capital B-O-T.",
+  "model": "ggml-small.en-q5_1",
+  "prompt": "default vocab prompt"
+ },
+ "dict-5": {
+  "spoken": "remove word K A Z E Y.",
+  "whisper": "Remove word K-A-Z-E-Y.",
+  "model": "ggml-small.en-q5_1",
+  "prompt": "default vocab prompt"
+ },
+ "dict-6": {
+  "spoken": "add word Q-U-I-N-N.",
+  "whisper": "Add word Q-U-I-N-N.",
+  "model": "ggml-small.en-q5_1",
+  "prompt": "default vocab prompt"
+ }
+}
