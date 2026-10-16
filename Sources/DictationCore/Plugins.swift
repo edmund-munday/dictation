@@ -6,6 +6,12 @@ public struct PluginArg: Codable, Equatable, Sendable {
     public var required: Bool
     public var description: String?
     public var `default`: String?
+    public var ignoreWords: [String]
+
+    enum CodingKeys: String, CodingKey {
+        case type, required, description, `default`
+        case ignoreWords = "ignore_words"
+    }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -13,6 +19,11 @@ public struct PluginArg: Codable, Equatable, Sendable {
         required = try c.decodeIfPresent(Bool.self, forKey: .required) ?? false
         description = try c.decodeIfPresent(String.self, forKey: .description)
         `default` = try c.decodeIfPresent(String.self, forKey: .default)
+        ignoreWords = try c.decodeIfPresent([String].self, forKey: .ignoreWords) ?? []
+        if `default` != nil && c.contains(.ignoreWords) {
+            throw DecodingError.dataCorruptedError(forKey: .ignoreWords, in: c,
+                                                   debugDescription: "default and ignore_words cannot be combined")
+        }
     }
 }
 
@@ -38,6 +49,7 @@ public struct PluginSpec: Codable, Equatable, Sendable {
     public var context: [String]
     public var action: PluginAction
     public var timeoutSeconds: Double
+    public var timeoutWithArgsSeconds: Double?
     /// R237: cancel window before running a command, in seconds.
     public var confirmDelaySeconds: Double
     public var needsSelection: Bool
@@ -48,6 +60,7 @@ public struct PluginSpec: Codable, Equatable, Sendable {
     enum CodingKeys: String, CodingKey {
         case name, description, enabled, triggers, args, context, action
         case timeoutSeconds = "timeout_s"
+        case timeoutWithArgsSeconds = "timeout_with_args_s"
         case confirmDelaySeconds = "confirm_delay_s"
         case needsSelection = "needs_selection"
         case managesMedia = "manages_media"
@@ -64,6 +77,8 @@ public struct PluginSpec: Codable, Equatable, Sendable {
         action = try c.decode(PluginAction.self, forKey: .action)
         let t = try c.decodeIfPresent(Double.self, forKey: .timeoutSeconds) ?? 10
         timeoutSeconds = min(max(t, 0.1), 120)
+        timeoutWithArgsSeconds = try c.decodeIfPresent(Double.self, forKey: .timeoutWithArgsSeconds)
+            .map { min(max($0, 0.1), 120) }
         let delay = try c.decodeIfPresent(Double.self, forKey: .confirmDelaySeconds) ?? 1.5
         confirmDelaySeconds = min(max(delay, 0), 10)
         needsSelection = try c.decodeIfPresent(Bool.self, forKey: .needsSelection) ?? false
@@ -79,11 +94,24 @@ public struct PluginSpec: Codable, Equatable, Sendable {
         return spec
     }
 
-    /// Fills defaults; nil when a required arg is missing or empty.
+    /// R295: optional arguments have already passed validation at the routing boundary.
+    public func timeout(for args: [String: String]) -> Double {
+        if self.args.contains(where: { !($0.value.required) && args[$0.key] != nil }) {
+            return timeoutWithArgsSeconds ?? timeoutSeconds
+        }
+        return timeoutSeconds
+    }
+
+    /// R294: gate values before filling defaults; nil when a required arg is absent.
     public func validated(_ given: [String: String]) -> [String: String]? {
         var out: [String: String] = [:]
         for (key, arg) in args {
-            let v = given[key]?.trimmingCharacters(in: .whitespacesAndNewlines)
+            var v = given[key]?.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let value = v {
+                let words = TriggerMatcher.words(value)
+                let ignored = Set(arg.ignoreWords.flatMap { TriggerMatcher.words($0) })
+                if words.allSatisfy({ ignored.contains($0) }) { v = nil }
+            }
             if let v, !v.isEmpty { out[key] = v } else if let d = arg.default { out[key] = d }
             else if arg.required { return nil }
         }
@@ -186,7 +214,7 @@ public enum TriggerMatcher {
                 if t.contains(where: { $0.hasPrefix("{") }) || t.isEmpty { continue }
                 var given: [String: String] = [:]
                 if let argName {
-                    guard said.count > t.count, Array(said.prefix(t.count)) == t else { continue }
+                    guard said.count >= t.count, Array(said.prefix(t.count)) == t else { continue }
                     given[argName] = said.dropFirst(t.count).joined(separator: " ")
                 } else {
                     guard said == t else { continue }

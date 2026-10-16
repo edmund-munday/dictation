@@ -24,14 +24,10 @@ public enum PluginRunner {
         }
     }
 
-    public static func run(_ spec: PluginSpec, args: [String: String], context: [String: String],
-                           pluginsDirectory: URL = PluginLoader.defaultDirectory) -> PluginRunResult {
-        var path = (spec.action.path as NSString).expandingTildeInPath
-        if !path.hasPrefix("/") { path = (spec.directory ?? pluginsDirectory).appendingPathComponent(path).path }
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: path)
-        process.arguments = substitute(spec.action.argv, args: args)
-        var env = ProcessInfo.processInfo.environment
+    /// R296: each invocation starts without any inherited Dictation state.
+    public static func environment(base: [String: String], spec: PluginSpec, args: [String: String],
+                                   context: [String: String], resourcesPath: String? = nil) -> [String: String] {
+        var env = base.filter { !$0.key.hasPrefix("DICTATION_") }
         env["DICTATION_PLUGIN"] = spec.name
         env["DICTATION_VERSION"] = "1"
         for (k, v) in args {
@@ -41,8 +37,19 @@ public enum PluginRunner {
         if let display = context["display_id"] { env["DICTATION_DISPLAY_ID"] = display }
         env["DICTATION_SELECTED_TEXT"] = context["selected_text"]
         env["DICTATION_MEDIA_WAS_PLAYING"] = context["media_was_playing"]
-        env["DICTATION_APP_RESOURCES"] = Bundle.main.resourcePath
-        process.environment = env
+        env["DICTATION_APP_RESOURCES"] = resourcesPath
+        return env
+    }
+
+    public static func run(_ spec: PluginSpec, args: [String: String], context: [String: String],
+                           pluginsDirectory: URL = PluginLoader.defaultDirectory) -> PluginRunResult {
+        var path = (spec.action.path as NSString).expandingTildeInPath
+        if !path.hasPrefix("/") { path = (spec.directory ?? pluginsDirectory).appendingPathComponent(path).path }
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: path)
+        process.arguments = substitute(spec.action.argv, args: args)
+        process.environment = environment(base: ProcessInfo.processInfo.environment, spec: spec, args: args,
+                                          context: context, resourcesPath: Bundle.main.resourcePath)
         let inPipe = Pipe(), outPipe = Pipe(), errPipe = Pipe()
         process.standardInput = inPipe
         process.standardOutput = outPipe
@@ -63,7 +70,7 @@ public enum PluginRunner {
         group.enter(); DispatchQueue.global().async { outData = outPipe.fileHandleForReading.readDataToEndOfFile(); group.leave() }
         group.enter(); DispatchQueue.global().async { errData = errPipe.fileHandleForReading.readDataToEndOfFile(); group.leave() }
         var timedOut = false
-        if done.wait(timeout: .now() + spec.timeoutSeconds) == .timedOut {
+        if done.wait(timeout: .now() + spec.timeout(for: args)) == .timedOut {
             timedOut = true
             let pid = process.processIdentifier
             kill(-pid, SIGTERM); process.terminate()
