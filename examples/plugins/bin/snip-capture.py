@@ -22,61 +22,93 @@ def find_snip():
     raise ValueError("snip not found")
 
 
-def capture(subject):
-    timeout = float(os.environ.get("SNIP_CAPTURE_TIMEOUT_S", "38"))
+class RetryableCaptureError(ValueError):
+    """Only Snip 75/70 and the wrapper deadline permit a plain retry."""
+
+
+def capture_timeout(name, maximum):
+    timeout = float(os.environ.get(name, str(maximum)))
     if not math.isfinite(timeout) or timeout <= 0:
-        raise ValueError("invalid SNIP_CAPTURE_TIMEOUT_S")
-    # Keep time for cleanup before the manifest's 40-second crop timeout.
-    timeout = min(timeout, 38)
+        raise ValueError(f"invalid {name}")
+    return min(timeout, maximum)
+
+
+def capture(subject):
+    # Named captures reserve six seconds for fallback and time for child cleanup.
+    timeout = capture_timeout("SNIP_CAPTURE_TIMEOUT_S", 31 if subject else 38)
     argv = [find_snip(), "capture", "--out", "clipboard", "--json"]
     env = dict(os.environ)
     env.pop("DICTATION_ARG_SUBJECT", None)
-    if subject:
-        argv += ["--describe", subject]
-
     cancelled = False
 
     def on_term(signum, frame):
         nonlocal cancelled
         cancelled = True
 
-    previous_handler = signal.signal(signal.SIGTERM, on_term)
-    child = None
-    try:
-        child = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env)
-        deadline = time.monotonic() + timeout
-        while True:
+    def run_capture(call_argv, call_timeout):
+        child = None
+        try:
             if cancelled:
                 raise ValueError("Snip capture cancelled")
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                raise ValueError("Snip timed out")
-            try:
-                stdout, _ = child.communicate(timeout=min(remaining, 0.2))
-                break
-            except subprocess.TimeoutExpired:
-                continue
-        if cancelled:
-            raise ValueError("Snip capture cancelled")
-        if child.returncode != 0:
-            message = {69: "Snip isn't running", 75: "Snip timed out"}.get(
-                child.returncode, f"Snip capture failed ({child.returncode})")
-            raise ValueError(message)
-        result = json.loads(stdout)
-        if not isinstance(result, dict) or result.get("ok") is not True:
-            raise ValueError("Snip capture failed")
-        return result
-    finally:
-        if child is not None:
-            if child.poll() is None:
-                child.terminate()
-                try:
-                    child.communicate(timeout=0.5)
-                except subprocess.TimeoutExpired:
+            child = subprocess.Popen(call_argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                     text=True, env=env)
+            deadline = time.monotonic() + call_timeout
+            while True:
+                if cancelled:
+                    raise ValueError("Snip capture cancelled")
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
                     child.kill()
-                    child.communicate()
-            else:
-                child.wait()
+                    raise RetryableCaptureError("Snip timed out")
+                try:
+                    stdout, _ = child.communicate(timeout=min(remaining, 0.2))
+                    break
+                except subprocess.TimeoutExpired:
+                    continue
+            if cancelled:
+                raise ValueError("Snip capture cancelled")
+            if child.returncode != 0:
+                message = {69: "Snip isn't running", 75: "Snip timed out"}.get(
+                    child.returncode, f"Snip capture failed ({child.returncode})")
+                error = RetryableCaptureError if child.returncode in (75, 70) else ValueError
+                raise error(message)
+            result = json.loads(stdout)
+            if not isinstance(result, dict) or result.get("ok") is not True:
+                raise ValueError("Snip capture failed")
+            return result
+        finally:
+            if child is not None:
+                if child.poll() is None:
+                    child.terminate()
+                    try:
+                        child.communicate(timeout=0.5)
+                    except subprocess.TimeoutExpired:
+                        child.kill()
+                        child.communicate()
+                else:
+                    child.wait()
+
+    previous_handler = signal.signal(signal.SIGTERM, on_term)
+    try:
+        try:
+            result = run_capture(argv + ["--describe", subject] if subject else argv, timeout)
+            if cancelled:
+                raise ValueError("Snip capture cancelled")
+            return result, False
+        except RetryableCaptureError:
+            if cancelled:
+                raise ValueError("Snip capture cancelled")
+            if not subject:
+                raise
+        # run_capture has reaped the describe child before starting this single fallback.
+        try:
+            result = run_capture(argv, capture_timeout("SNIP_FALLBACK_TIMEOUT_S", 6))
+            if cancelled:
+                raise ValueError("Snip capture cancelled")
+            return result, True
+        except Exception:
+            raise ValueError("Screenshot failed. Nothing was copied.") from None
+    finally:
         signal.signal(signal.SIGTERM, previous_handler)
 
 
@@ -89,8 +121,10 @@ def main():
         if not isinstance(subject, str):
             raise ValueError("invalid subject")
         subject = subject.strip()
-        result = capture(subject)
-        if not subject:
+        result, used_fallback = capture(subject)
+        if used_fallback:
+            notify = f"Full screenshot copied to clipboard. Couldn't crop to {subject}."
+        elif not subject:
             notify = "Screenshot copied to clipboard"
         elif result.get("cropped"):
             notify = f"Screenshot of {subject} copied to clipboard"
