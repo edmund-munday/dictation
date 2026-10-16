@@ -1,4 +1,4 @@
-"""R283–R298: isolated wrapper/manifest contract; no installed Snip required."""
+"""R283–R305: isolated wrapper/manifest contract; no installed Snip required."""
 import json
 import os
 from pathlib import Path
@@ -37,25 +37,35 @@ import os
 import sys
 import time
 from pathlib import Path
-Path(os.environ["FAKE_RECORD"]).write_text(json.dumps({
-    "argv": sys.argv[1:], "env": dict(os.environ), "pid": os.getpid(),
-}))
-time.sleep(float(os.environ.get("FAKE_SLEEP", "0")))
-print(os.environ.get("FAKE_OUTPUT", '{"ok": true, "cropped": false}'))
-sys.exit(int(os.environ.get("FAKE_EXIT", "0")))
+record = {"argv": sys.argv[1:], "env": dict(os.environ), "pid": os.getpid()}
+with open(os.environ["FAKE_RECORD"] + ".jsonl", "a") as history:
+    history.write(json.dumps(record) + "\\n")
+Path(os.environ["FAKE_RECORD"]).write_text(json.dumps(record))
+prefix = "FAKE_DESCRIBE_" if "--describe" in sys.argv else "FAKE_"
+def setting(name, default):
+    return os.environ.get(prefix + name, os.environ.get("FAKE_" + name, default))
+time.sleep(float(setting("SLEEP", "0")))
+print(setting("OUTPUT", '{"ok": true, "cropped": false}'))
+sys.exit(int(setting("EXIT", "0")))
 ''')
         self.snip.chmod(0o700)
         self.env = dict(os.environ, SNIP_BIN=str(self.snip), FAKE_RECORD=str(self.record),
                         DICTATION_ARG_SUBJECT="stale poisoned subject", HOME=str(self.directory))
         # Keep the fixture independent of inherited settings.
-        for key in ["SNIP_CAPTURE_TIMEOUT_S", "FAKE_SLEEP", "FAKE_OUTPUT", "FAKE_EXIT"]:
+        for key in ["SNIP_CAPTURE_TIMEOUT_S", "SNIP_FALLBACK_TIMEOUT_S", "FAKE_SLEEP",
+                    "FAKE_OUTPUT", "FAKE_EXIT", "FAKE_DESCRIBE_SLEEP", "FAKE_DESCRIBE_OUTPUT",
+                    "FAKE_DESCRIBE_EXIT"]:
             self.env.pop(key, None)
 
     def run_wrapper(self, args=None, raw=None, **env):
         payload = raw if raw is not None else json.dumps({"plugin": "screenshot", "args": args or {},
                                                          "context": {}, "version": 1})
         return subprocess.run([sys.executable, str(WRAPPER)], input=payload, text=True,
-                              capture_output=True, env=dict(self.env, **env), timeout=8)
+                              capture_output=True, env=dict(self.env, **env), timeout=12)
+
+    def invocations(self):
+        return [json.loads(line) for line in
+                Path(str(self.record) + ".jsonl").read_text().splitlines()]
 
     def assert_failure(self, result, message=None):
         self.assertEqual(result.returncode, 1, result.stderr)
@@ -89,12 +99,12 @@ sys.exit(int(os.environ.get("FAKE_EXIT", "0")))
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(json.loads(result.stdout), {"notify": f"Full screenshot copied: {reason}"})
 
-    def test_R285_exit_messages_never_fall_back_or_exit_two(self):
-        for code, message in [(69, "Snip isn't running"), (75, "Snip timed out"),
-                              (70, "Snip capture failed (70)"), (64, "Snip capture failed (64)"),
-                              (2, "Snip capture failed (2)")]:
+    def test_R285_R305_nonretryable_exit_messages_never_fall_back_or_exit_two(self):
+        for index, (code, message) in enumerate([(69, "Snip isn't running"), (64, "Snip capture failed (64)"),
+                              (2, "Snip capture failed (2)")], 1):
             with self.subTest(code=code):
                 self.assert_failure(self.run_wrapper({"subject": "chart"}, FAKE_EXIT=str(code)), message)
+                self.assertEqual(len(self.invocations()), index)
 
     def test_R297_malformed_stdin_is_one_error_line_and_never_exit_two(self):
         for raw in ["", "not json\nmore text", "[]", "null", '{"args": []}',
@@ -104,14 +114,15 @@ sys.exit(int(os.environ.get("FAKE_EXIT", "0")))
                 self.assertFalse(self.record.exists(), "Bad input must not start snip")
 
     def test_R297_bad_snip_output_is_a_failure(self):
-        for output in ["invalid json", "null", "[]", '{"ok": false}']:
+        for index, output in enumerate(["invalid json", "null", "[]", '{"ok": false}'], 1):
             with self.subTest(output=output):
-                self.assert_failure(self.run_wrapper(FAKE_OUTPUT=output))
+                self.assert_failure(self.run_wrapper({"subject": "chart"}, FAKE_OUTPUT=output))
+                self.assertEqual(len(self.invocations()), index)
 
-    def start_sleeping_wrapper(self, **env):
+    def start_sleeping_wrapper(self, subject="chart", **env):
         process = subprocess.Popen([sys.executable, str(WRAPPER)], stdin=subprocess.PIPE,
                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-                                   env=dict(self.env, FAKE_SLEEP="5", **env))
+                                   env=dict(self.env, FAKE_SLEEP="10", **env))
         def cleanup():
             if process.poll() is None:
                 process.kill()
@@ -123,10 +134,10 @@ sys.exit(int(os.environ.get("FAKE_EXIT", "0")))
                 except ProcessLookupError:
                     pass
         self.addCleanup(cleanup)
-        process.stdin.write(json.dumps({"args": {"subject": "chart"}}))
+        process.stdin.write(json.dumps({"args": {"subject": subject}}))
         process.stdin.close()
         process.stdin = None
-        deadline = time.monotonic() + 3
+        deadline = time.monotonic() + 6
         while not self.record.exists() and process.poll() is None and time.monotonic() < deadline:
             time.sleep(0.02)
         self.assertTrue(self.record.exists(), "fake snip did not start")
@@ -139,19 +150,67 @@ sys.exit(int(os.environ.get("FAKE_EXIT", "0")))
     def test_R297_sigterm_forwards_to_child_and_waits(self):
         process, pid = self.start_sleeping_wrapper()
         process.terminate()
-        stdout, stderr = process.communicate(timeout=4)
+        stdout, stderr = process.communicate(timeout=6)
         self.assertEqual(process.returncode, 1, stderr)
         self.assertEqual(stdout, "")
         self.assertEqual(len(stderr.splitlines()), 1, stderr)
         self.assert_child_gone(pid)
+        self.assertEqual(len(self.invocations()), 1, "Cancellation must not start fallback")
 
     def test_R297_own_timeout_kills_and_reaps_child(self):
-        process, pid = self.start_sleeping_wrapper(SNIP_CAPTURE_TIMEOUT_S="1")
-        stdout, stderr = process.communicate(timeout=4)
+        process, pid = self.start_sleeping_wrapper(subject="", SNIP_CAPTURE_TIMEOUT_S="4")
+        stdout, stderr = process.communicate(timeout=6)
         self.assertEqual(process.returncode, 1, stderr)
         self.assertEqual(stdout, "")
         self.assertEqual(stderr.strip(), "Snip timed out")
         self.assert_child_gone(pid)
+
+    def assert_fallback_success(self, result):
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stderr, "")
+        self.assertEqual(json.loads(result.stdout), {
+            "notify": "Full screenshot copied to clipboard. Couldn't crop to chart."})
+        calls = self.invocations()
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(calls[0]["argv"],
+                         ["capture", "--out", "clipboard", "--json", "--describe", "chart"])
+        self.assertEqual(calls[1]["argv"], ["capture", "--out", "clipboard", "--json"])
+        for call in calls:
+            self.assertNotIn("DICTATION_ARG_SUBJECT", call["env"])
+
+    def test_R305_describe_exit_75_falls_back(self):
+        self.assert_fallback_success(self.run_wrapper({"subject": "chart"}, FAKE_DESCRIBE_EXIT="75"))
+
+    def test_R305_describe_exit_70_falls_back(self):
+        self.assert_fallback_success(self.run_wrapper({"subject": "chart"}, FAKE_DESCRIBE_EXIT="70"))
+
+    def test_R305_describe_deadline_falls_back_and_reaps_child(self):
+        result = self.run_wrapper({"subject": "chart"}, FAKE_DESCRIBE_SLEEP="10",
+                                  SNIP_CAPTURE_TIMEOUT_S="4", SNIP_FALLBACK_TIMEOUT_S="4")
+        self.assert_fallback_success(result)
+        self.assert_child_gone(self.invocations()[0]["pid"])
+
+    def test_R305_exit_69_has_no_fallback(self):
+        self.assert_failure(self.run_wrapper({"subject": "chart"}, FAKE_EXIT="69"),
+                            "Snip isn't running")
+        self.assertEqual(len(self.invocations()), 1)
+
+    def test_R305_bare_exit_75_has_no_fallback(self):
+        self.assert_failure(self.run_wrapper(FAKE_EXIT="75"), "Snip timed out")
+        self.assertEqual(len(self.invocations()), 1)
+
+    def test_R305_fallback_failure_has_one_error_line(self):
+        result = self.run_wrapper({"subject": "chart"}, FAKE_EXIT="70")
+        self.assert_failure(result, "Screenshot failed. Nothing was copied.")
+        self.assertEqual(len(self.invocations()), 2)
+
+    def test_R305_fallback_deadline_has_one_error_line_and_reaps_child(self):
+        result = self.run_wrapper({"subject": "chart"}, FAKE_DESCRIBE_EXIT="75",
+                                  FAKE_SLEEP="10", FAKE_DESCRIBE_SLEEP="0",
+                                  SNIP_FALLBACK_TIMEOUT_S="4")
+        self.assert_failure(result, "Screenshot failed. Nothing was copied.")
+        self.assertEqual(len(self.invocations()), 2)
+        self.assert_child_gone(self.invocations()[1]["pid"])
 
     def test_R297_missing_snip_is_one_error_line(self):
         self.assert_failure(self.run_wrapper(SNIP_BIN=str(self.directory / "missing")), "snip not found")
