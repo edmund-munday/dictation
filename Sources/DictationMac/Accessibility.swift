@@ -10,45 +10,149 @@ public final class AccessibilityBridge: FocusProvider, TextInserter {
     private var order: [String] = []
     private var counter = 0
 
+    public var setManualAccessibility: (pid_t) -> AXError = { pid in
+        AXUIElementSetAttributeValue(
+            AXUIElementCreateApplication(pid), "AXManualAccessibility" as CFString, kCFBooleanTrue)
+    }
+    /// Pid zero asks only for system-wide focus when there is no frontmost application.
+    public var copyFocusedElement: (pid_t) -> AXUIElement? = { pid in
+        AccessibilityBridge.defaultFocusedElement(pid: pid)
+    }
+    public var frontmostApp: () -> (pid: pid_t, bundleID: String?)? = {
+        guard let app = NSWorkspace.shared.frontmostApplication else { return nil }
+        return (app.processIdentifier, app.bundleIdentifier)
+    }
+    public var pause: (TimeInterval) -> Void = { Thread.sleep(forTimeInterval: $0) }
+    public var log: (String) -> Void = { NSLog("%@", $0) }
+
+    private final class ManualAccessibilityState {
+        var unsupported = false
+        var hasProducedFocus = false
+        var loggedCodes: Set<Int32> = []
+    }
+
+    // Activation arrives on main; focus resolution runs on AppModel's work queue.
+    // All accesses to these collections and their state objects hold accessibilityLock.
+    private let accessibilityLock = NSLock()
     private var manualAccessibilityPIDs: Set<pid_t> = []
+    private var manualAccessibilityStates: [pid_t: ManualAccessibilityState] = [:]
+    private var workspaceObservers: [NSObjectProtocol] = []
 
     public init() {
         // Electron/Chromium build their accessibility tree only when asked; ask as soon as an
         // app becomes active so the focused field is readable by the time the talk key goes down.
-        NSWorkspace.shared.notificationCenter.addObserver(
+        let center = NSWorkspace.shared.notificationCenter
+        workspaceObservers.append(center.addObserver(
             forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: nil
         ) { [weak self] note in
             if let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication {
-                self?.enableWebAccessibility(pid: app.processIdentifier)
+                self?.enableWebAccessibility(pid: app.processIdentifier, bundleID: app.bundleIdentifier)
             }
+        })
+        workspaceObservers.append(center.addObserver(
+            forName: NSWorkspace.didTerminateApplicationNotification, object: nil, queue: nil
+        ) { [weak self] note in
+            if let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication {
+                self?.removeManualAccessibilityState(pid: app.processIdentifier)
+            }
+        })
+        if let front = frontmostApp() { enableWebAccessibility(pid: front.pid, bundleID: front.bundleID) }
+    }
+
+    deinit {
+        let center = NSWorkspace.shared.notificationCenter
+        for observer in workspaceObservers { center.removeObserver(observer) }
+    }
+
+    private func enableWebAccessibility(pid: pid_t, bundleID: String?) {
+        guard pid > 0 else { return }
+        accessibilityLock.lock()
+        let message = enableWebAccessibilityLocked(pid: pid, bundleID: bundleID, ignoringCache: false)
+        accessibilityLock.unlock()
+        if let message { log(message) }
+    }
+
+    /// Caller holds accessibilityLock, including during the AX set, so activation cannot race retry.
+    private func enableWebAccessibilityLocked(pid: pid_t, bundleID: String?, ignoringCache: Bool) -> String? {
+        guard ignoringCache || !manualAccessibilityPIDs.contains(pid) else { return nil }
+        let state = manualAccessibilityStateLocked(pid: pid)
+        let result = setManualAccessibility(pid)
+        state.hasProducedFocus = false
+        switch result {
+        case .success:
+            state.unsupported = false
+            manualAccessibilityPIDs.insert(pid)
+        case .attributeUnsupported, .notImplemented, .actionUnsupported:
+            state.unsupported = true
+            manualAccessibilityPIDs.insert(pid)
+        default:
+            state.unsupported = false
+            manualAccessibilityPIDs.remove(pid)
         }
-        if let front = NSWorkspace.shared.frontmostApplication { enableWebAccessibility(pid: front.processIdentifier) }
+        guard state.loggedCodes.insert(result.rawValue).inserted else { return nil }
+        return "Dictation AX: AXManualAccessibility pid \(pid) \(bundleID ?? "<unknown>") err \(result.rawValue)"
     }
 
-    private func enableWebAccessibility(pid: pid_t) {
-        guard pid > 0, !manualAccessibilityPIDs.contains(pid) else { return }
-        manualAccessibilityPIDs.insert(pid)
-        let app = AXUIElementCreateApplication(pid)
-        AXUIElementSetAttributeValue(app, "AXManualAccessibility" as CFString, kCFBooleanTrue)
+    private func manualAccessibilityStateLocked(pid: pid_t) -> ManualAccessibilityState {
+        if let state = manualAccessibilityStates[pid] { return state }
+        let state = ManualAccessibilityState()
+        manualAccessibilityStates[pid] = state
+        return state
     }
 
-    /// The system-wide focused element often fails (kAXErrorCannotComplete) on recent macOS,
-    /// so ask the frontmost app first and fall back to the system-wide element.
-    private func focusedElement() -> AXUIElement? {
-        if let front = NSWorkspace.shared.frontmostApplication {
-            let pid = front.processIdentifier
-            enableWebAccessibility(pid: pid)
+    private func removeManualAccessibilityState(pid: pid_t) {
+        accessibilityLock.lock()
+        defer { accessibilityLock.unlock() }
+        manualAccessibilityPIDs.remove(pid)
+        manualAccessibilityStates.removeValue(forKey: pid)
+    }
+
+    private func resolveFocusedElement() -> AXUIElement? {
+        guard let front = frontmostApp(), front.pid > 0 else { return copyFocusedElement(0) }
+        accessibilityLock.lock()
+        let state = manualAccessibilityStateLocked(pid: front.pid)
+        if let element = copyFocusedElement(front.pid) {
+            state.hasProducedFocus = true
+            accessibilityLock.unlock()
+            return element
+        }
+        guard !state.unsupported, !state.hasProducedFocus else {
+            accessibilityLock.unlock()
+            return nil
+        }
+        let message = enableWebAccessibilityLocked(pid: front.pid, bundleID: front.bundleID, ignoringCache: true)
+        let shouldRetry = !state.unsupported
+        accessibilityLock.unlock()
+        if let message { log(message) }
+        guard shouldRetry else { return nil }
+
+        // Do not block activation or termination notifications while the tree becomes available.
+        pause(0.15)
+        accessibilityLock.lock()
+        defer { accessibilityLock.unlock() }
+        // Termination during the pause must not recreate stale state or affect a reused pid.
+        guard manualAccessibilityStates[front.pid] === state else { return nil }
+        let element = copyFocusedElement(front.pid)
+        if element != nil { state.hasProducedFocus = true }
+        return element
+    }
+
+    /// Exercises the same resolver as currentFocus without reading attributes of opaque test elements.
+    public func focusedElementForTesting() -> AXUIElement? { resolveFocusedElement() }
+
+    /// The system-wide lookup often fails on recent macOS, so try the app, then its focused window.
+    private static func defaultFocusedElement(pid: pid_t) -> AXUIElement? {
+        if pid > 0 {
             let app = AXUIElementCreateApplication(pid)
-            if let el: AXUIElement = copy(app, kAXFocusedUIElementAttribute) { return el }
-            // Chromium may expose focus only below the focused window.
-            if let win: AXUIElement = copy(app, kAXFocusedWindowAttribute),
-               let el: AXUIElement = copy(win, kAXFocusedUIElementAttribute) { return el }
+            if let element: AXUIElement = copyAttribute(app, kAXFocusedUIElementAttribute) { return element }
+            if let window: AXUIElement = copyAttribute(app, kAXFocusedWindowAttribute),
+               let element: AXUIElement = copyAttribute(window, kAXFocusedUIElementAttribute) { return element }
         }
-        return copy(AXUIElementCreateSystemWide(), kAXFocusedUIElementAttribute)
+        return copyAttribute(AXUIElementCreateSystemWide(), kAXFocusedUIElementAttribute)
     }
 
     public func currentFocus(at time: Duration) -> FocusSnapshot {
-        guard let element = focusedElement() else {
+        guard let element = resolveFocusedElement() else {
             return FocusSnapshot(timestamp: time, role: .none, identity: .none)
         }
         var pid: pid_t = 0
@@ -150,6 +254,10 @@ public final class AccessibilityBridge: FocusProvider, TextInserter {
     }
 
     private func copy<T>(_ element: AXUIElement, _ attribute: String) -> T? {
+        Self.copyAttribute(element, attribute)
+    }
+
+    private static func copyAttribute<T>(_ element: AXUIElement, _ attribute: String) -> T? {
         var value: CFTypeRef?
         guard AXUIElementCopyAttributeValue(element, attribute as CFString, &value) == .success,
               let value else { return nil }
