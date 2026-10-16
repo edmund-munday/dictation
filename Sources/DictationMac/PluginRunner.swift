@@ -24,10 +24,14 @@ public enum PluginRunner {
         }
     }
 
-    /// R296: each invocation starts without any inherited Dictation state.
+    /// R296: clear inherited runner-owned values while preserving configuration.
     public static func environment(base: [String: String], spec: PluginSpec, args: [String: String],
                                    context: [String: String], resourcesPath: String? = nil) -> [String: String] {
-        var env = base.filter { !$0.key.hasPrefix("DICTATION_") }
+        let ownedKeys: Set<String> = [
+            "DICTATION_PLUGIN", "DICTATION_VERSION", "DICTATION_APP_BUNDLE", "DICTATION_DISPLAY_ID",
+            "DICTATION_SELECTED_TEXT", "DICTATION_MEDIA_WAS_PLAYING", "DICTATION_APP_RESOURCES",
+        ]
+        var env = base.filter { !$0.key.hasPrefix("DICTATION_ARG_") && !ownedKeys.contains($0.key) }
         env["DICTATION_PLUGIN"] = spec.name
         env["DICTATION_VERSION"] = "1"
         for (k, v) in args {
