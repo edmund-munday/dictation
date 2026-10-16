@@ -105,6 +105,44 @@ final class PluginRunnerTests: XCTestCase {
         XCTAssertLessThan(Date().timeIntervalSince(start), 5)
     }
 
+    func test_R296_environmentRemovesAllInheritedDictationKeysBeforeAddingCurrentValues() throws {
+        let p = try PluginSpec.parse(Data(#"{"name":"screenshot","args":{"subject":{"ignore_words":["this"]}},"action":{"path":"/bin/echo"}}"#.utf8))
+        let base = ["PATH": "/usr/bin:/bin", "KEEP": "value", "DICTATION_ARG_SUBJECT": "stale",
+                    "DICTATION_FOO": "x", "DICTATION_APP_BUNDLE": "stale.app"]
+        let args = try XCTUnwrap(p.validated(["subject": "this"]))
+        let clean = PluginRunner.environment(base: base, spec: p, args: args, context: [:])
+        XCTAssertNil(clean["DICTATION_ARG_SUBJECT"])
+        XCTAssertNil(clean["DICTATION_FOO"])
+        XCTAssertNil(clean["DICTATION_APP_BUNDLE"])
+        XCTAssertEqual(clean["KEEP"], "value")
+        XCTAssertEqual(clean["PATH"], base["PATH"])
+        XCTAssertEqual(clean["DICTATION_PLUGIN"], "screenshot")
+        XCTAssertEqual(clean["DICTATION_VERSION"], "1")
+        let populated = PluginRunner.environment(base: base, spec: p, args: ["subject": "chart"],
+                                                 context: ["frontmost_app": "new.app", "selected_text": "text"])
+        XCTAssertEqual(populated["DICTATION_ARG_SUBJECT"], "chart")
+        XCTAssertEqual(populated["DICTATION_APP_BUNDLE"], "new.app")
+        XCTAssertEqual(populated["DICTATION_SELECTED_TEXT"], "text")
+        XCTAssertNil(populated["DICTATION_FOO"])
+    }
+
+    func test_R295_runnerUsesPerArgsTimeoutAfterGate() throws {
+        let path = try script("sleep 1; echo finished")
+        let manifest: [String: Any] = ["name": "screenshot", "action": ["path": path],
+                                      "args": ["subject": ["ignore_words": ["this"]]],
+                                      "timeout_s": 0.5, "timeout_with_args_s": 3]
+        let p = try PluginSpec.parse(JSONSerialization.data(withJSONObject: manifest))
+        let withSubject = PluginRunner.run(p, args: try XCTUnwrap(p.validated(["subject": "chart"])), context: [:])
+        XCTAssertFalse(withSubject.timedOut)
+        XCTAssertEqual(withSubject.exitCode, 0)
+        XCTAssertEqual(withSubject.stdout.trimmingCharacters(in: .whitespacesAndNewlines), "finished")
+        for given in [[:], ["subject": "this"]] {
+            let withoutSubject = PluginRunner.run(p, args: try XCTUnwrap(p.validated(given)), context: [:])
+            XCTAssertTrue(withoutSubject.timedOut)
+            XCTAssertEqual(withoutSubject.exitCode, -1)
+        }
+    }
+
     func test_R234_nonZeroExitReportsStderrFirstLine() throws {
         let s = try script("echo 'boom here' >&2; echo second >&2; exit 1")
         let r = PluginRunner.run(try spec(s), args: [:], context: [:])
