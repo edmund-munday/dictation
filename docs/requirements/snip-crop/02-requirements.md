@@ -64,3 +64,16 @@
   examples/plugins/README.md instructs copying bin/snip-capture.py into the plugins folder's bin/ and
   backing up the installed screenshot.json before replacing it. Do not change BundledPlugins.screenshotJSON
   or touch any screenshot.sh.
+- R305 Named capture fallback (supersedes R297's pending fallback decision and named-call timeout):
+  When a subject is present and the `--describe` Snip call exits 75 (timeout) or 70 (capture failure),
+  or the wrapper's own deadline for that call expires, kill and reap that child and make exactly one
+  plain capture using the same argv without `--describe <subject>`. SIGTERM cancellation must never
+  trigger fallback. On fallback success, print
+  {"notify":"Full screenshot copied to clipboard. Couldn't crop to <subject>."} and exit 0.
+  The describe deadline is 31 seconds and the fallback deadline is 6 seconds, keeping capture and
+  cleanup under the manifest's 40-second limit. Tests may shorten these with SNIP_CAPTURE_TIMEOUT_S
+  and SNIP_FALLBACK_TIMEOUT_S, capped at 31 and 6 seconds respectively.
+  Exit 69 (Snip not running), exit 64, invalid JSON or ok!=true from the describe call, cancellation,
+  and bare requests (no subject) get no fallback and retain their existing behaviour. If fallback
+  itself fails, exit 1 with exactly one stderr line: "Screenshot failed. Nothing was copied." Never
+  exit 2. The cropped=false notification behaviour in R286 stays unchanged.
