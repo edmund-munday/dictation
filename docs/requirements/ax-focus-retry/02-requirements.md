@@ -21,5 +21,7 @@
   Never repeat the same pid/code line during that process lifetime and never log dictated text.
 - R304 Thread safety and cleanup: guard `manualAccessibilityPIDs` and all per-pid retry/logging state
   with an `NSLock`, since activation notifications run on main and `currentFocus` runs on AppModel's
-  work queue. Remove a pid and all of its state on `NSWorkspace.didTerminateApplicationNotification`
+  work queue. The lock guards only in-memory state; it is never held while calling
+  `setManualAccessibility` or `copyFocusedElement`, since these cross-process AX calls can block.
+  Remove a pid and all of its state on `NSWorkspace.didTerminateApplicationNotification`
   so a relaunched process, including a reused pid, starts fresh.

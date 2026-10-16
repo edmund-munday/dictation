@@ -250,13 +250,76 @@ final class AccessibilityRetryTests: XCTestCase {
         XCTAssertEqual(f.fake.setPIDs, [f.pid, f.pid, f.pid])
         XCTAssertEqual(f.fake.pauses, [0.15], "The previously focused state was removed")
     }
+
+    func test_R304_blockedFocusLookupDoesNotHoldStateLock() {
+        assertAXCallDoesNotHoldStateLock(blockingSet: false)
+    }
+
+    func test_R304_blockedEnableDoesNotHoldStateLock() {
+        assertAXCallDoesNotHoldStateLock(blockingSet: true)
+    }
+
+    private func assertAXCallDoesNotHoldStateLock(
+        blockingSet: Bool, file: StaticString = #filePath, line: UInt = #line
+    ) {
+        let f = AccessibilityRetryFixture()
+        let bridge = f.bridge
+        let element = AXUIElementCreateApplication(1)
+        let firstEntered = XCTestExpectation(description: "First AX call is blocked")
+        let secondEntered = XCTestExpectation(description: "Second lookup reaches AX")
+        let firstFinished = XCTestExpectation(description: "First resolver finishes")
+        let secondFinished = XCTestExpectation(description: "Second resolver finishes")
+        let release = DispatchSemaphore(value: 0)
+        let entriesLock = NSLock()
+        var entries = 0
+        let blockFirstCall = {
+            firstEntered.fulfill()
+            _ = release.wait(timeout: .now() + 5)
+        }
+        bridge.copyFocusedElement = { _ in
+            entriesLock.lock()
+            entries += 1
+            let entry = entries
+            entriesLock.unlock()
+            if entry == 1 {
+                if blockingSet { return nil }
+                blockFirstCall()
+            } else if entry == 2 {
+                secondEntered.fulfill()
+            }
+            return element
+        }
+        bridge.setManualAccessibility = { _ in
+            if blockingSet { blockFirstCall() }
+            return .success
+        }
+        bridge.pause = { _ in }
+        bridge.log = { _ in }
+
+        DispatchQueue(label: "ax-retry.first").async {
+            _ = bridge.focusedElementForTesting()
+            firstFinished.fulfill()
+        }
+        XCTAssertEqual(XCTWaiter.wait(for: [firstEntered], timeout: 1), .completed, file: file, line: line)
+        DispatchQueue(label: "ax-retry.second").async {
+            _ = bridge.focusedElementForTesting()
+            secondFinished.fulfill()
+        }
+        let secondResult = XCTWaiter.wait(for: [secondEntered], timeout: 1)
+        // Always unblock the first call, including when the old implementation times out.
+        release.signal()
+        XCTAssertEqual(secondResult, .completed, "An AX call must not hold the state lock", file: file, line: line)
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [firstFinished, secondFinished], timeout: 2), .completed,
+            file: file, line: line)
+    }
 }
 
 /// Only the OS boundaries are faked; activation/termination use the real workspace notifications.
 private final class AccessibilityRetryFixture {
     let bridge = AccessibilityBridge()
     let fake = AccessibilityRetryFake()
-    let application = NSRunningApplication.current
+    let application = AccessibilityRetryApplication()
     var pid: pid_t { application.processIdentifier }
 
     init() {
@@ -286,6 +349,11 @@ private final class AccessibilityRetryFixture {
         NSWorkspace.shared.notificationCenter.post(
             name: name, object: nil, userInfo: [NSWorkspace.applicationUserInfoKey: application])
     }
+}
+
+private final class AccessibilityRetryApplication: NSRunningApplication {
+    override var processIdentifier: pid_t { 4242 }
+    override var bundleIdentifier: String? { "com.example.ax-retry" }
 }
 
 private final class AccessibilityRetryFake {
