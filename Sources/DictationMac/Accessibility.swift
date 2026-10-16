@@ -29,10 +29,12 @@ public final class AccessibilityBridge: FocusProvider, TextInserter {
         var unsupported = false
         var hasProducedFocus = false
         var loggedCodes: Set<Int32> = []
+        var enableGeneration = 0
     }
 
     // Activation arrives on main; focus resolution runs on AppModel's work queue.
     // All accesses to these collections and their state objects hold accessibilityLock.
+    // AX calls, pauses, and logging run outside the lock because they can block or reenter.
     private let accessibilityLock = NSLock()
     private var manualAccessibilityPIDs: Set<pid_t> = []
     private var manualAccessibilityStates: [pid_t: ManualAccessibilityState] = [:]
@@ -64,33 +66,60 @@ public final class AccessibilityBridge: FocusProvider, TextInserter {
         for observer in workspaceObservers { center.removeObserver(observer) }
     }
 
-    private func enableWebAccessibility(pid: pid_t, bundleID: String?) {
-        guard pid > 0 else { return }
+    /// Returns whether this pid is still eligible for a focus retry after the enable.
+    @discardableResult
+    private func enableWebAccessibility(
+        pid: pid_t, bundleID: String?, retrying expectedState: ManualAccessibilityState? = nil
+    ) -> Bool {
+        guard pid > 0 else { return false }
         accessibilityLock.lock()
-        let message = enableWebAccessibilityLocked(pid: pid, bundleID: bundleID, ignoringCache: false)
-        accessibilityLock.unlock()
-        if let message { log(message) }
-    }
-
-    /// Caller holds accessibilityLock, including during the AX set, so activation cannot race retry.
-    private func enableWebAccessibilityLocked(pid: pid_t, bundleID: String?, ignoringCache: Bool) -> String? {
-        guard ignoringCache || !manualAccessibilityPIDs.contains(pid) else { return nil }
-        let state = manualAccessibilityStateLocked(pid: pid)
-        let result = setManualAccessibility(pid)
-        state.hasProducedFocus = false
-        switch result {
-        case .success:
-            state.unsupported = false
-            manualAccessibilityPIDs.insert(pid)
-        case .attributeUnsupported, .notImplemented, .actionUnsupported:
-            state.unsupported = true
-            manualAccessibilityPIDs.insert(pid)
-        default:
-            state.unsupported = false
-            manualAccessibilityPIDs.remove(pid)
+        if let expectedState {
+            // Recheck the retry gate after the lookup, bypassing only the successful-enable cache.
+            guard manualAccessibilityStates[pid] === expectedState,
+                  !expectedState.unsupported, !expectedState.hasProducedFocus else {
+                accessibilityLock.unlock()
+                return false
+            }
+        } else if manualAccessibilityPIDs.contains(pid) {
+            accessibilityLock.unlock()
+            return false
         }
-        guard state.loggedCodes.insert(result.rawValue).inserted else { return nil }
-        return "Dictation AX: AXManualAccessibility pid \(pid) \(bundleID ?? "<unknown>") err \(result.rawValue)"
+        let state = manualAccessibilityStateLocked(pid: pid)
+        // Focus found while the AX call is in flight belongs to this enable and must be kept.
+        state.hasProducedFocus = false
+        state.enableGeneration += 1
+        let generation = state.enableGeneration
+        accessibilityLock.unlock()
+
+        let result = setManualAccessibility(pid)
+
+        accessibilityLock.lock()
+        // A terminated process must not be resurrected by an AX call that finishes late.
+        guard manualAccessibilityStates[pid] === state else {
+            accessibilityLock.unlock()
+            return false
+        }
+        // Concurrent enables may finish out of order; only the latest attempt changes the cache.
+        if state.enableGeneration == generation {
+            switch result {
+            case .success:
+                state.unsupported = false
+                manualAccessibilityPIDs.insert(pid)
+            case .attributeUnsupported, .notImplemented, .actionUnsupported:
+                state.unsupported = true
+                manualAccessibilityPIDs.insert(pid)
+            default:
+                state.unsupported = false
+                manualAccessibilityPIDs.remove(pid)
+            }
+        }
+        let shouldLog = state.loggedCodes.insert(result.rawValue).inserted
+        let shouldRetry = !state.unsupported && !state.hasProducedFocus
+        accessibilityLock.unlock()
+        if shouldLog {
+            log("Dictation AX: AXManualAccessibility pid \(pid) \(bundleID ?? "<unknown>") err \(result.rawValue)")
+        }
+        return shouldRetry
     }
 
     private func manualAccessibilityStateLocked(pid: pid_t) -> ManualAccessibilityState {
@@ -111,28 +140,36 @@ public final class AccessibilityBridge: FocusProvider, TextInserter {
         guard let front = frontmostApp(), front.pid > 0 else { return copyFocusedElement(0) }
         accessibilityLock.lock()
         let state = manualAccessibilityStateLocked(pid: front.pid)
-        if let element = copyFocusedElement(front.pid) {
+        accessibilityLock.unlock()
+
+        let firstElement = copyFocusedElement(front.pid)
+
+        accessibilityLock.lock()
+        guard manualAccessibilityStates[front.pid] === state else {
+            accessibilityLock.unlock()
+            return nil
+        }
+        if let element = firstElement {
             state.hasProducedFocus = true
             accessibilityLock.unlock()
             return element
         }
-        guard !state.unsupported, !state.hasProducedFocus else {
-            accessibilityLock.unlock()
-            return nil
-        }
-        let message = enableWebAccessibilityLocked(pid: front.pid, bundleID: front.bundleID, ignoringCache: true)
-        let shouldRetry = !state.unsupported
         accessibilityLock.unlock()
-        if let message { log(message) }
-        guard shouldRetry else { return nil }
+        guard enableWebAccessibility(pid: front.pid, bundleID: front.bundleID, retrying: state) else { return nil }
 
         // Do not block activation or termination notifications while the tree becomes available.
         pause(0.15)
         accessibilityLock.lock()
-        defer { accessibilityLock.unlock() }
         // Termination during the pause must not recreate stale state or affect a reused pid.
-        guard manualAccessibilityStates[front.pid] === state else { return nil }
+        let isCurrent = manualAccessibilityStates[front.pid] === state
+        accessibilityLock.unlock()
+        guard isCurrent else { return nil }
+
         let element = copyFocusedElement(front.pid)
+
+        accessibilityLock.lock()
+        defer { accessibilityLock.unlock() }
+        guard manualAccessibilityStates[front.pid] === state else { return nil }
         if element != nil { state.hasProducedFocus = true }
         return element
     }
