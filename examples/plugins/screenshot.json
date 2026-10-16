@@ -2,7 +2,7 @@
   "name": "screenshot",
   "description": "Take a screenshot and copy it to the clipboard. Name a subject to crop to it, or capture the whole screen without one.",
   "enabled": true,
-  "triggers": ["take a screenshot", "take a screenshot of {subject}", "grab a screenshot", "grab a screenshot of {subject}", "screenshot", "screenshot this", "screenshot the {subject}", "screenshot that {subject}"],
+  "triggers": ["take a screenshot", "take a screenshot of {subject}", "grab a screenshot", "grab a screenshot of {subject}", "screenshot", "screenshot this", "screenshot that", "screenshot the {subject}", "screenshot that {subject}"],
   "args": {
     "subject": {
       "type": "string",

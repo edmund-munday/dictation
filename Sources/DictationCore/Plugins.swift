@@ -214,7 +214,7 @@ public enum TriggerMatcher {
                 if t.contains(where: { $0.hasPrefix("{") }) || t.isEmpty { continue }
                 var given: [String: String] = [:]
                 if let argName {
-                    guard said.count >= t.count, Array(said.prefix(t.count)) == t else { continue }
+                    guard said.count > t.count, Array(said.prefix(t.count)) == t else { continue }
                     given[argName] = said.dropFirst(t.count).joined(separator: " ")
                 } else {
                     guard said == t else { continue }
