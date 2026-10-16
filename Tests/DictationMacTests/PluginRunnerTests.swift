@@ -105,14 +105,17 @@ final class PluginRunnerTests: XCTestCase {
         XCTAssertLessThan(Date().timeIntervalSince(start), 5)
     }
 
-    func test_R296_environmentRemovesAllInheritedDictationKeysBeforeAddingCurrentValues() throws {
+    func test_R296_environmentRemovesOnlyRunnerOwnedKeysBeforeAddingCurrentValues() throws {
         let p = try PluginSpec.parse(Data(#"{"name":"screenshot","args":{"subject":{"ignore_words":["this"]}},"action":{"path":"/bin/echo"}}"#.utf8))
         let base = ["PATH": "/usr/bin:/bin", "KEEP": "value", "DICTATION_ARG_SUBJECT": "stale",
+                    "DICTATION_SELECTED_TEXT": "stale", "DICTATION_SUPPORT_DIR": "/tmp/x",
                     "DICTATION_FOO": "x", "DICTATION_APP_BUNDLE": "stale.app"]
         let args = try XCTUnwrap(p.validated(["subject": "this"]))
         let clean = PluginRunner.environment(base: base, spec: p, args: args, context: [:])
         XCTAssertNil(clean["DICTATION_ARG_SUBJECT"])
-        XCTAssertNil(clean["DICTATION_FOO"])
+        XCTAssertNil(clean["DICTATION_SELECTED_TEXT"])
+        XCTAssertEqual(clean["DICTATION_SUPPORT_DIR"], "/tmp/x")
+        XCTAssertEqual(clean["DICTATION_FOO"], "x")
         XCTAssertNil(clean["DICTATION_APP_BUNDLE"])
         XCTAssertEqual(clean["KEEP"], "value")
         XCTAssertEqual(clean["PATH"], base["PATH"])
@@ -123,7 +126,8 @@ final class PluginRunnerTests: XCTestCase {
         XCTAssertEqual(populated["DICTATION_ARG_SUBJECT"], "chart")
         XCTAssertEqual(populated["DICTATION_APP_BUNDLE"], "new.app")
         XCTAssertEqual(populated["DICTATION_SELECTED_TEXT"], "text")
-        XCTAssertNil(populated["DICTATION_FOO"])
+        XCTAssertEqual(populated["DICTATION_SUPPORT_DIR"], "/tmp/x")
+        XCTAssertEqual(populated["DICTATION_FOO"], "x")
     }
 
     func test_R295_runnerUsesPerArgsTimeoutAfterGate() throws {

@@ -44,8 +44,10 @@
   timeoutSeconds. PluginRunner uses spec.timeout(for: args) with the already gated args it received.
   No timeout logic belongs in AppModel.
 - R296 Clean environment: PluginRunner builds the child environment in a pure static function taking
-  base: [String: String], removing every inherited key starting with DICTATION_ before setting fresh
-  DICTATION_ARG_* and other current invocation keys.
+  base: [String: String], removing only runner-owned inherited keys before setting this invocation's
+  values: every DICTATION_ARG_* key plus DICTATION_PLUGIN, DICTATION_VERSION, DICTATION_APP_BUNDLE,
+  DICTATION_DISPLAY_ID, DICTATION_SELECTED_TEXT, DICTATION_MEDIA_WAS_PLAYING, and DICTATION_APP_RESOURCES.
+  Any other inherited DICTATION_* key (e.g. DICTATION_SUPPORT_DIR, DICTATION_MEDIA_CMD) passes through unchanged.
 - R297 Wrapper safety: examples/plugins/bin/snip-capture.py reads args.subject from the stdin JSON payload,
   not the environment. It never uses argparse or exits 2 (AppModel inserts the transcript on exit 2).
   Every failure, including bad stdin, exits 1 with one line on stderr. It forwards SIGTERM to the snip
