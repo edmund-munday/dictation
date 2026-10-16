@@ -18,7 +18,7 @@ IGNORE_WORDS = [
 ]
 TRIGGERS = [
     "take a screenshot", "take a screenshot of {subject}", "grab a screenshot",
-    "grab a screenshot of {subject}", "screenshot", "screenshot this",
+    "grab a screenshot of {subject}", "screenshot", "screenshot this", "screenshot that",
     "screenshot the {subject}", "screenshot that {subject}",
 ]
 

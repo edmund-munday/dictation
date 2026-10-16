@@ -8,7 +8,8 @@
   screenshot this." -> no subject; "Take a screenshot of the screen." -> no subject; "Screenshot the Slack
   window." -> subject "Slack window" (compare case-insensitively: the fast path may lowercase); "Screenshot that chart." -> subject "chart" (the trigger "screenshot that {subject}" consumes "that");
   "Screenshot that." and "Screenshot that, um." -> no subject, fast path, no gateway call; "Take a screenshot of
-  the error dialog." -> subject "the error dialog".
+  the error dialog." -> subject "the error dialog". The bare "Screenshot that." case is served by the exact
+  trigger "screenshot that"; a {placeholder} trigger still needs at least one word after it (R236 unchanged).
 - R284 Per-args timeout: PluginSpec `timeout_with_args_s` (optional). When any optional arg survives the gate
   the runner uses it instead of timeout_s. Pass: screenshot with subject runs under a 40 s limit (a script
   sleeping 20 s completes); without subject the 15 s limit applies (a 20 s script is killed).
@@ -24,7 +25,7 @@
 - R287 Manifest: examples/plugins/screenshot.json uses bin/snip-capture.py, timeout_s 15, timeout_with_args_s
   40, confirm_delay_s 0, the ignore_words list from 01-understanding.md for subject, and triggers "take a
   screenshot", "take a screenshot of {subject}", "grab a screenshot", "grab a screenshot of {subject}",
-  "screenshot", "screenshot this", "screenshot the {subject}", "screenshot that {subject}". Fast path still
+  "screenshot", "screenshot this", "screenshot that", "screenshot the {subject}", "screenshot that {subject}". Fast path still
   makes no gateway call.
 - R288 Real sample: recorded "take a screenshot of the Slack window" and "take a screenshot of this" (say + real
   whisper) through the pipeline with a fake snip yield --describe with "the Slack window" (case-insensitive) and no --describe
