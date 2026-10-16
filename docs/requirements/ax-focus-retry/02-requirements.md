@@ -19,6 +19,7 @@
 - R303 Logging: through the log seam, emit one `NSLog` line per pid per `AXError` code, for example
   `Dictation AX: AXManualAccessibility pid 123 com.anthropic.claudefordesktop err -25204`.
   Never repeat the same pid/code line during that process lifetime and never log dictated text.
+  The line is logged publicly via `os.Logger` subsystem `com.edmundmunday.dictation`, category `accessibility`.
 - R304 Thread safety and cleanup: guard `manualAccessibilityPIDs` and all per-pid retry/logging state
   with an `NSLock`, since activation notifications run on main and `currentFocus` runs on AppModel's
   work queue. The lock guards only in-memory state; it is never held while calling

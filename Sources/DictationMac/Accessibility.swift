@@ -3,6 +3,7 @@ import ApplicationServices
 import Carbon
 import DictationCore
 import Foundation
+import os
 
 /// Reads the system-wide focused element and inserts text into a remembered element.
 public final class AccessibilityBridge: FocusProvider, TextInserter {
@@ -23,7 +24,10 @@ public final class AccessibilityBridge: FocusProvider, TextInserter {
         return (app.processIdentifier, app.bundleIdentifier)
     }
     public var pause: (TimeInterval) -> Void = { Thread.sleep(forTimeInterval: $0) }
-    public var log: (String) -> Void = { NSLog("%@", $0) }
+    public var log: (String) -> Void = {
+        os.Logger(subsystem: "com.edmundmunday.dictation", category: "accessibility")
+            .notice("\($0, privacy: .public)")
+    }
 
     private final class ManualAccessibilityState {
         var unsupported = false
