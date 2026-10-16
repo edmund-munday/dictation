@@ -15,8 +15,8 @@ final class AppModel: ObservableObject {
         as? Bool ?? HoldPipeline.tailTranscriptionDefaultOn
     @Published var saveDictations = UserDefaults.standard.object(forKey: "saveDictationsForTuning") as? Bool ?? true
     private lazy var corpus = CorpusLogger(enabled: saveDictations)
-    @Published var statusSymbol = "mic.slash"
-    @Published var menuTitle = "Dictation Off"
+    @Published var statusSymbol = "pause.circle"
+    @Published var menuTitle = "Resume dictation (Ctrl-Opt-Space)"
     @Published var coreMenuText = ""
     @Published var cleanupLabel = "Cleanup: local rules"
     @Published var speechLabel = ""
