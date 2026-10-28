@@ -169,3 +169,4 @@ After the 2026-10-13 change, R61–R78 define the **local rule-based fallback** 
 | R121 | Capture starts only when the talk key is held on its own; holding Command together with any other key or modifier already down does not start capture. | CHG (Cmd) | L, M |
 | R122 | If any other key is pressed while the talk key is down, it reaches the app as a normal shortcut, any capture is cancelled, the panel closes, nothing is sent to the LLM and nothing is inserted. | CHG (Cmd) | L, M |
 | R123 | Pressing and releasing the talk key alone never sends a key event or shortcut to the focused app beyond the bare Command press. | CHG (Cmd) | M |
+| R306 | A transcript that is only an invented Whisper silence phrase (subtitle credits such as "Subs by www.zeoranger.co.uk", "Thanks for watching!", a lone "you") is dropped like a lone mutter: nothing is inserted and no Copy fallback is offered. Real sentences that merely contain those words are still inserted. | T | L |
