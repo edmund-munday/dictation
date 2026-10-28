@@ -1083,6 +1083,14 @@ public final class Session: @unchecked Sendable {
                 panel: .hidden, overlay: .empty, insert: false
             )
         }
+        // R306: an invented subtitle credit is never inserted or offered for copying.
+        if Cleanup.isSilenceHallucination(Cleanup.wordTokens(raw))
+            || Cleanup.isSilenceHallucination(Cleanup.wordTokens(cleaned)) {
+            return ResolvedOutput(
+                text: "", target: nil, replaces: false, strippedNewline: false,
+                panel: .hidden, overlay: .empty, insert: false
+            )
+        }
         guard let focus else {
             return ResolvedOutput(
                 text: cleaned,

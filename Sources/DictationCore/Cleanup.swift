@@ -25,7 +25,43 @@ enum Cleanup {
 
     static func isLoneMutter(_ text: String) -> Bool {
         let words = wordTokens(text)
+        if isSilenceHallucination(words) { return true }
         return !words.isEmpty && words.allSatisfy { fillers.contains($0) }
+    }
+
+    /// R306: whole transcripts Whisper invents from silence or noise (subtitle credits and
+    /// video sign-offs from its training data). A hold that hears only these inserts nothing.
+    private static let silencePhrases: Set<String> = [
+        "you",
+        "thanks for watching",
+        "thank you for watching",
+        "thank you so much for watching",
+        "thanks for watching and see you next time",
+        "thank you for watching and see you next time",
+        "please subscribe",
+        "like and subscribe",
+        "please like and subscribe",
+        "subs by www zeoranger co uk",
+        "subtitles by the amara org community",
+    ]
+
+    /// R306: credit markers that never occur in real dictation; a short transcript holding one is invented.
+    private static let creditMarkers: [[String]] = [
+        ["zeoranger"],
+        ["amara", "org"],
+        ["castingwords"],
+        ["subs", "by", "www"],
+        ["subtitles", "by", "www"],
+    ]
+
+    static func isSilenceHallucination(_ words: [String]) -> Bool {
+        guard !words.isEmpty else { return false }
+        if silencePhrases.contains(words.joined(separator: " ")) { return true }
+        guard words.count <= 15 else { return false }
+        return creditMarkers.contains { marker in
+            words.count >= marker.count
+                && (0...(words.count - marker.count)).contains { Array(words[$0..<($0 + marker.count)]) == marker }
+        }
     }
 
     static func clean(_ raw: String) -> String {
