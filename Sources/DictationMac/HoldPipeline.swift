@@ -52,6 +52,8 @@ public final class HoldPipeline {
     public func partialTick() {
         guard isCapturing, session.micState == .open else { return }
         let samples = audio.snapshot()
+        // R307: no Whisper run (and no invented partial) until the audio holds speech.
+        guard SpeechGate.hasSpeech(samples: samples, sampleRate: audio.sampleRate) else { return }
         let text: String?
         if tailTranscriptionEnabled, let segmented = transcriber as? SegmentedSpeechTranscriber {
             guard let segments = segmented.transcribeSegments(samples: samples, sampleRate: audio.sampleRate,
@@ -95,7 +97,10 @@ public final class HoldPipeline {
         if isCapturing {
             let samples = audio.snapshot()
             stopCapture(notifyEnd: false)
-            if let text = releaseTranscript(samples: samples), !text.isEmpty {
+            // R307: a hold with no meaningful speech skips Whisper, so the session sees
+            // no speech and drops the release before cleanup, commands, insert or send.
+            if SpeechGate.hasSpeech(samples: samples, sampleRate: audio.sampleRate),
+               let text = releaseTranscript(samples: samples), !text.isEmpty {
                 ingest(text, final: true)
             }
             session.ingestFocus(focus.currentFocus(at: clock.now))

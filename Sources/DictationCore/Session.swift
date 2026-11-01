@@ -484,7 +484,8 @@ public final class Session: @unchecked Sendable {
             }
         } else if let text = output.insert, !text.isEmpty, let target = request.target {
             insertRequests.append(InsertRequest(text: text, target: target, replacesSelection: false,
-                                                autoSendAllowed: output.send ?? false))
+                                                autoSendAllowed: (output.send ?? false)
+                                                    && SpeechGate.isMeaningfulText(text)))
         }
         if let note = output.notify, !note.isEmpty {
             panelState = PanelState(isVisible: true, text: note)
@@ -1528,7 +1529,7 @@ public final class Session: @unchecked Sendable {
             }
             insertRequests.append(
                 InsertRequest(text: text, target: target, replacesSelection: job.replacesSelection,
-                              autoSendAllowed: job.allowSend)
+                              autoSendAllowed: job.allowSend && SpeechGate.isMeaningfulText(text))
             )
             overlayState = job.overlay
             if job.maxLengthNote {

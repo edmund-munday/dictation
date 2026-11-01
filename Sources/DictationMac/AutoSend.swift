@@ -1,5 +1,6 @@
 import AppKit
 import CoreGraphics
+import DictationCore
 import Foundation
 
 /// Presses Return. The only place the app ever sends Return (R223, chat apps only).
@@ -56,8 +57,7 @@ public struct AutoSendPolicy: Equatable {
     }
 
     public func shouldSend(bundleID: String?, inserted: Bool, text: String, allowed: Bool) -> Bool {
-        enabled && allowed && inserted && isChatApp(bundleID)
-            && !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        enabled && allowed && inserted && isChatApp(bundleID) && SpeechGate.isMeaningfulText(text)
     }
 
     public static func load(from defaults: UserDefaults = .standard) -> AutoSendPolicy {
