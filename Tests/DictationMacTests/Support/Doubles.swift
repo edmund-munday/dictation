@@ -17,7 +17,7 @@ final class ScriptedTranscriber: SpeechTranscriber {
     }
 }
 
-/// Audio double: counts starts/stops, returns one second of silence.
+/// Audio double: counts starts/stops, returns `samples` (a spoken phrase unless a test sets it).
 final class CountingAudio: AudioSource {
     private(set) var starts = 0
     private(set) var stops = 0
@@ -34,7 +34,9 @@ final class CountingAudio: AudioSource {
         running = false
     }
 
-    func snapshot() -> [Float] { [Float](repeating: 0, count: 16_000) }
+    var samples: [Float] = TestSignal.phrase(voiceDbfs: -25)
+
+    func snapshot() -> [Float] { samples }
 }
 
 /// Focus double returning a fixed snapshot (timestamped by the caller's clock).
