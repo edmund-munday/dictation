@@ -17,8 +17,12 @@ set(WHISPER_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(WHISPER_BUILD_SERVER OFF CACHE BOOL "" FORCE)
 set(WHISPER_BUILD_IS_DEV OFF CACHE BOOL "" FORCE)
 
+# 16 KB page devices require every LOAD segment to be aligned to 0x4000.
+string(APPEND CMAKE_SHARED_LINKER_FLAGS " -Wl,-z,max-page-size=16384")
+
 add_subdirectory("${WHISPER_SRC}" whisper-build EXCLUDE_FROM_ALL)
 
 add_library(dictation_whisper SHARED whisper_jni.cpp)
+target_link_options(dictation_whisper PRIVATE "-Wl,-z,max-page-size=16384")
 target_link_libraries(dictation_whisper whisper log)
 target_include_directories(dictation_whisper PRIVATE "${WHISPER_SRC}/include")

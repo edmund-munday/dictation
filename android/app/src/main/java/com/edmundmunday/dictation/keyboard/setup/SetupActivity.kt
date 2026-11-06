@@ -94,10 +94,8 @@ class SetupActivity : android.app.Activity() {
     }
 
     private fun imeEnabled(): Boolean {
-        val enabled = Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_INPUT_METHODS)
-            ?: return false
-        val flat = ComponentName(this, DictationImeService::class.java).flattenToString()
-        return enabled.split(':').any { it.substringBefore(';') == flat }
+        val service = ComponentName(this, DictationImeService::class.java)
+        return keyboardEnablement(this).isEnabled(service)
     }
 
     private fun modelStatus(): String {
