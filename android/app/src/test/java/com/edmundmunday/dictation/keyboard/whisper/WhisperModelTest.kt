@@ -13,7 +13,7 @@ class WhisperModelTest {
         val base = WhisperModels.file(filesDir, WhisperModel.BASE)
         assertEquals("ggml-small.en-q5_1.bin", small.name)
         assertEquals("ggml-base.en-q5_1.bin", base.name)
-        assertEquals("models", small.parentFile.name)
+        assertEquals("models", small.parentFile!!.name)
         assertEquals(small.parentFile, base.parentFile)
         assertTrue(small.path.startsWith(filesDir.path))
         assertTrue(WhisperModels.url(WhisperModel.SMALL).contains("ggml-small.en-q5_1.bin"))

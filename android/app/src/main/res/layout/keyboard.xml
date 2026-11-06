@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="#1C1B19"
+    android:orientation="vertical"
+    android:padding="12dp">
+
+    <TextView
+        android:id="@+id/strip"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="#F4F1EA"
+        android:minHeight="48dp"
+        android:padding="12dp"
+        android:text="Tap to talk"
+        android:textColor="#1C1B19"
+        android:textSize="16sp" />
+
+    <Button
+        android:id="@+id/talk"
+        android:layout_width="match_parent"
+        android:layout_height="72dp"
+        android:layout_marginTop="12dp"
+        android:background="#E4572E"
+        android:text="Talk"
+        android:textAllCaps="false"
+        android:textColor="#FFFFFF"
+        android:textSize="20sp" />
+
+    <Button
+        android:id="@+id/switch_key"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="8dp"
+        android:background="#3D5A4C"
+        android:text="Switch"
+        android:textAllCaps="false"
+        android:textColor="#FFFFFF"
+        android:textSize="16sp" />
+</LinearLayout>

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Dictation</string>
+    <string name="ime_name">Dictation</string>
+    <string name="subtype_label">English (Australia)</string>
+</resources>
