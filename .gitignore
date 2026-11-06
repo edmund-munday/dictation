@@ -1,3 +1,8 @@
 .build/
 .swiftpm/
 build/
+android/.gradle/
+android/local.properties
+android/app/.cxx/
+android/third_party/
+android/**/*.bin

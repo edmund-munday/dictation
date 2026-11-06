@@ -1,0 +1,20 @@
+Hey Kazey, thanks for sending the draft through yesterday.
+I read it on the train this morning and I really like the overall structure.
+The introduction is strong, but the middle section about the budget could be a bit tighter.
+I would move the timeline to the end so the reader gets the main argument first.
+Let me know if you want to go through it together on a call later this week.
+Grok Bot, please file this under the dictation notes.
+Grok Build failed on the worker again, can you take a look?
+Snip the Slack window and drop it in the thread.
+Ship it Friday, actually I mean Monday.
+The gateway timed out so we used the local cleanup.
+Add a note that the MacBook stays on the desk overnight.
+Tell Codex to leave the Origin branch alone.
+This is a quick one for the Messages chat.
+Can you send the summary to Kazey before lunch?
+I will be in the office on Tuesday, not Wednesday.
+The Pixel keyboard should keep listening through the pauses.
+Please do not send that last message.
+New paragraph. The budget needs another pass.
+Number one, fix the join. Number two, measure the latency.
+Thanks Kazey, that draft is good to go once Grok Build is green.
