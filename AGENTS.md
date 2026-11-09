@@ -12,12 +12,12 @@
 
 ## Setup, build and checks
 
-Run commands from the repository root. Swift targets require Swift 6; the app
-requires macOS 13+ and Apple's build/signing tools. Python plugin tests require
-Python 3 (verified with 3.12) and a writable temporary directory; no pip packages
-or package dependencies need installing.
+Run commands from the repository root. Swift tests and the app require Swift 6
+and macOS 13+. Building the app also requires Apple's build/signing tools.
+Python plugin tests run anywhere with Python 3 and a writable temporary directory;
+no pip packages or package dependencies need installing.
 
-Commands verified from a clean checkout in this Linux container, in order:
+Available commands:
 
 ```sh
 swift --version
@@ -28,15 +28,12 @@ scripts/check-rids.sh
 scripts/build-app.sh
 ```
 
-- Swift is not installed here: the version check, both Swift invocations in
-  `scripts/test.sh`, and the app build stop with `swift: not found`. No Swift
-  tests execute. macOS integrations and the app also require macOS frameworks.
-- The Python subset passes all 19 tests with writable temporary storage; it uses
-  a fake Snip executable and needs no audio hardware or installed Snip.
-- There is no dedicated formatter/linter. `scripts/check-rids.sh` checks requirement
-  coverage/naming; it currently fails for missing R75 coverage and 55 test names
-  without a live R-ID (G/M-prefixed names). It reports 90 L requirements, 360
-  R-ID test names and 173 unique R-IDs.
+- Python plugin tests use a fake Snip executable and need no audio hardware or
+  installed Snip.
+- There is no dedicated formatter/linter. `scripts/check-rids.sh` checks that every
+  non-removed requirement marked `L` has a Swift test named for its R-ID, and flags
+  test names that lack an R-ID or refer to a removed requirement. It also
+  summarizes requirement and test IDs.
 - On macOS, `scripts/build-app.sh` builds `build/Dictation.app`.
   The official test command is `scripts/test.sh`: plain `swift test` skips
   `DictationMacTests`, so the script explicitly runs that group too. The opt-in
