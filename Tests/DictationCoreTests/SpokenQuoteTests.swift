@@ -1,5 +1,8 @@
 @testable import DictationCore
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 import XCTest
 
 /// R225: spoken "quote" is markup. Cues become ⟦QUOTE⟧/⟦/QUOTE⟧ tokens for the gateway, the local

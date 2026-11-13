@@ -1,5 +1,8 @@
 @testable import DictationCore
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 import XCTest
 
 /// R222: a trailing "don't send" instruction is stripped and the insert is marked not to auto-send.
