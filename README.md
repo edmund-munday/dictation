@@ -24,6 +24,30 @@ Protect the file with `chmod 600 "$HOME/Library/Application Support/Dictation/ga
 3 seconds. Missing or malformed configuration, including an empty key, selects local
 rules. Keep the key out of the repository. Transcripts and cleanup results are never logged.
 
+### Local cleanup (work laptop)
+
+To keep cleanup on the machine, run a local model server and add `"api": "openai"`.
+Cleanup then POSTs to `<url>/v1/chat/completions` (the format llama.cpp and Ollama serve)
+and needs no key. A file without `api` keeps the gateway behaviour above, so the personal
+laptop needs no change.
+
+```sh
+brew install llama.cpp
+llama-server -m "$HOME/Library/Application Support/Dictation/llm/qwen2.5-3b-instruct-q8_0.gguf" --host 127.0.0.1 --port 8080
+```
+
+```json
+{
+  "url": "http://127.0.0.1:8080",
+  "model": "local",
+  "api": "openai",
+  "timeoutSeconds": 3
+}
+```
+
+Restart the app after changing `gateway.json`. If the server is down or slow, cleanup
+falls back to local rules, the same as a gateway failure.
+
 The official test command on macOS is `scripts/test.sh`. It runs both `swift test` and
 `swift test --filter DictationMacTests`; plain `swift test` skips `DictationMacTests`.
 

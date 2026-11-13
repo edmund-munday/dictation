@@ -4,28 +4,41 @@ import FoundationNetworking
 #endif
 
 public struct GatewayConfig: Codable, Equatable, Sendable {
+    /// Request format. `gateway` is Edmund's LLM gateway (`<url>/v1/chat`, reply `{"text":...}`).
+    /// `openai` is the standard chat-completions format served by local model servers such as
+    /// Ollama or llama.cpp (`<url>/v1/chat/completions`), so cleanup can stay on the machine.
+    public enum API: String, Codable, Sendable {
+        case gateway
+        case openai
+    }
+
     public var url: URL
     public var model: String
     public var key: String
     public var timeoutSeconds: Double
+    public var api: API
 
     public static let defaultModel = "deepseek/deepseek-flash"
 
-    public init(url: URL, model: String = GatewayConfig.defaultModel, key: String, timeoutSeconds: Double = 5) {
+    public init(url: URL, model: String = GatewayConfig.defaultModel, key: String, timeoutSeconds: Double = 5,
+                api: API = .gateway) {
         self.url = url
         self.model = model
         self.key = key
         self.timeoutSeconds = timeoutSeconds
+        self.api = api
     }
 
     private enum CodingKeys: String, CodingKey {
-        case url, model, key, timeoutSeconds
+        case url, model, key, timeoutSeconds, api
     }
 
     public init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         url = try values.decode(URL.self, forKey: .url)
-        key = try values.decode(String.self, forKey: .key)
+        api = try values.decodeIfPresent(API.self, forKey: .api) ?? .gateway
+        // A local server needs no key, so `openai` configs may leave it out.
+        key = try values.decodeIfPresent(String.self, forKey: .key) ?? ""
         model = try values.decodeIfPresent(String.self, forKey: .model) ?? Self.defaultModel
         timeoutSeconds = try values.decodeIfPresent(Double.self, forKey: .timeoutSeconds) ?? 5
     }
@@ -45,7 +58,7 @@ public struct GatewayConfig: Codable, Equatable, Sendable {
     fileprivate var isValid: Bool {
         ["http", "https"].contains(url.scheme?.lowercased() ?? "")
             && url.host?.isEmpty == false
-            && !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && (api == .openai || !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             && !model.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && timeoutSeconds.isFinite && timeoutSeconds > 0
             && timeoutSeconds * 1_000 < Double(Int.max)
@@ -124,23 +137,35 @@ public final class GatewayCleaner {
             completion(.error)
             return
         }
-        var request = URLRequest(url: config.url.appendingPathComponent("v1/chat"))
+        let openAI = config.api == .openai
+        var request = URLRequest(url: config.url.appendingPathComponent(openAI ? "v1/chat/completions" : "v1/chat"))
         request.httpMethod = "POST"
         request.timeoutInterval = config.timeoutSeconds
-        request.setValue("Bearer \(config.key)", forHTTPHeaderField: "Authorization")
+        if !config.key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            request.setValue("Bearer \(config.key)", forHTTPHeaderField: "Authorization")
+        }
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         let dictionarySection = UserDictionary.gatewayLine(terms: dictionaryTerms()).map { "\n" + $0 } ?? ""
-        let body: [String: Any] = [
-            "model": config.model,
-            "temperature": 0,
-            "messages": [
-                ["role": "system", "content": CleanupPrompt.text + dictionarySection + (CommandRouter.promptSection(for: plugins) ?? "")],
-                ["role": "user", "content": SpokenMarkup.tokenize(raw)],
-            ],
-            "max_output_tokens": 600,
-            "timeout_ms": Int(config.timeoutSeconds * 1_000),
-            "tool_tag": "dictation:cleanup",
+        let messages = [
+            ["role": "system", "content": CleanupPrompt.text + dictionarySection + (CommandRouter.promptSection(for: plugins) ?? "")],
+            ["role": "user", "content": SpokenMarkup.tokenize(raw)],
         ]
+        let body: [String: Any] = openAI
+            ? [
+                "model": config.model,
+                "temperature": 0,
+                "messages": messages,
+                "max_tokens": 600,
+                "stream": false,
+            ]
+            : [
+                "model": config.model,
+                "temperature": 0,
+                "messages": messages,
+                "max_output_tokens": 600,
+                "timeout_ms": Int(config.timeoutSeconds * 1_000),
+                "tool_tag": "dictation:cleanup",
+            ]
         guard let data = try? JSONSerialization.data(withJSONObject: body) else {
             completion(.error)
             return
@@ -152,16 +177,26 @@ public final class GatewayCleaner {
                 return
             }
             guard case let .success((data, status)) = result, status == 200,
-                  let response = try? JSONDecoder().decode(Response.self, from: data) else {
+                  let reply = openAI
+                    ? (try? JSONDecoder().decode(OpenAIResponse.self, from: data))?.choices.first?.message.content
+                    : (try? JSONDecoder().decode(Response.self, from: data))?.text else {
                 completion(.error)
                 return
             }
-            let text = response.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            let text = reply.trimmingCharacters(in: .whitespacesAndNewlines)
             completion(text.isEmpty ? .error : .reply(text))
         }
     }
 
     private struct Response: Decodable {
         var text: String
+    }
+
+    private struct OpenAIResponse: Decodable {
+        struct Choice: Decodable {
+            struct Message: Decodable { var content: String }
+            var message: Message
+        }
+        var choices: [Choice]
     }
 }
