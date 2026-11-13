@@ -1,4 +1,8 @@
 @testable import DictationCore
+import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 import XCTest
 
 /// R214-R217: spoken punctuation becomes marks (Edmund, 2026-10-14 13:31).
