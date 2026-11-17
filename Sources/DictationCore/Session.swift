@@ -55,6 +55,9 @@ public final class Session: @unchecked Sendable {
     private var talkKeyChoice: TalkKeyChoice = .leftCommand
     private var cleanupBackend: CleanupBackend = .off
     private var cleanupExecutablePath: String?
+    /// Reasons cleanup output was refused (never contains transcript text).
+    public private(set) var cleanupRefusals: [CleanupRefusal] = []
+    public private(set) var cleanupBackendRefusals: [CleanupBackendRefusal] = []
     private var gatewayCleaner: GatewayCleaner?
     /// Tuning-corpus records (R228); never includes secure-field utterances.
     public private(set) var utteranceRecords: [UtteranceRecord] = []
@@ -464,9 +467,27 @@ public final class Session: @unchecked Sendable {
         }
     }
 
-    public func setCleanupBackend(_ backend: CleanupBackend, executablePath: String? = nil) {
+    /// Sets the cleanup backend. A CLI or local-model backend with a non-empty path must point at an
+    /// existing executable file; otherwise the change is refused (reason logged, returned) and the
+    /// previous backend stays in force.
+    @discardableResult
+    public func setCleanupBackend(
+        _ backend: CleanupBackend, executablePath: String? = nil
+    ) -> CleanupBackendRefusal? {
+        if backend != .gateway, backend != .off, let path = executablePath, !path.isEmpty,
+           let refusal = CleanupExecutable.validate(path: path) {
+            cleanupBackendRefusals.append(refusal)
+            FileHandle.standardError.write(Data("\(refusal)\n".utf8))
+            return refusal
+        }
         cleanupBackend = backend
         cleanupExecutablePath = executablePath
+        return nil
+    }
+
+    private func noteRefusal(_ refusal: CleanupRefusal) {
+        cleanupRefusals.append(refusal)
+        FileHandle.standardError.write(Data("\(refusal)\n".utf8))
     }
 
     public func setPlugins(_ specs: [PluginSpec]) {
@@ -969,32 +990,23 @@ public final class Session: @unchecked Sendable {
         let data = outPipe.fileHandleForReading.readDataToEndOfFile()
         let output = String(data: data, encoding: .utf8) ?? ""
         job.output = output
-        guard process.terminationStatus == 0 else { return .unavailable }
-        if let accepted = acceptLLMResult(raw: raw, result: output) {
+        switch CleanupOutput.validate(raw: raw, stdout: output, exitStatus: process.terminationStatus) {
+        case .success(let accepted):
             return .accepted(accepted)
+        case .failure(let refusal):
+            noteRefusal(refusal)
+            if case .nonZeroExit = refusal { return .unavailable }
+            return .rejected
         }
-        return .rejected
     }
 
-    private func acceptLLMResult(raw: String, result: String) -> String? {
-        var text = result.trimmingCharacters(in: .whitespacesAndNewlines)
-        let pairs: [(Character, Character)] = [("\"", "\""), ("'", "'"), ("“", "”")]
-        var stripped = true
-        while stripped {
-            stripped = false
-            for (open, close) in pairs {
-                if text.first == open, text.last == close, text.count >= 2 {
-                    text = String(text.dropFirst().dropLast())
-                        .trimmingCharacters(in: .whitespacesAndNewlines)
-                    stripped = true
-                }
-            }
+    private func acceptLLMResult(raw: String, result: String, exitStatus: Int32 = 0) -> String? {
+        switch CleanupOutput.validate(raw: raw, stdout: result, exitStatus: exitStatus) {
+        case .success(let text): return text
+        case .failure(let refusal):
+            noteRefusal(refusal)
+            return nil
         }
-        if text.isEmpty { return nil }
-        if text.count > raw.count * 2 + 40 { return nil }
-        let lower = text.lowercased()
-        if lower.hasPrefix("here is") || lower.hasPrefix("sure") { return nil }
-        return text
     }
 
     private func scheduleLocal(
@@ -1408,7 +1420,8 @@ public final class Session: @unchecked Sendable {
         let output = job.output ?? ""
         let statusOK = job.process?.terminationStatus == 0
         let focusShot = storedFocus(for: pendingCommit)
-        if statusOK, let accepted = acceptLLMResult(raw: pendingCommit.raw, result: output) {
+        let exitStatus = job.process?.terminationStatus ?? -1
+        if let accepted = acceptLLMResult(raw: pendingCommit.raw, result: output, exitStatus: exitStatus) {
             let resolved = resolveOutput(raw: pendingCommit.raw, cleaned: accepted, focus: focusShot)
             pendingCommit.text = resolved.text
             pendingCommit.target = resolved.target
@@ -1584,14 +1597,17 @@ public final class Session: @unchecked Sendable {
 
         if cliEnabled {
             if let path = cliPath {
-                if let cliResult = invokeCLISync(path: path, text: raw) {
-                    let trimmed = cliResult.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if !trimmed.isEmpty {
-                        cleaned = trimmed
+                switch invokeCLISync(path: path, text: raw) {
+                case .success(let accepted):
+                    cleaned = accepted
+                case .failure(let refusal):
+                    noteRefusal(refusal)
+                    var unavailable = refusal == .launchFailed
+                    if case .nonZeroExit = refusal { unavailable = true }
+                    if unavailable, !cliUnavailableNoted {
+                        showCLIUnavailable = true
+                        cliUnavailableNoted = true
                     }
-                } else if !cliUnavailableNoted {
-                    showCLIUnavailable = true
-                    cliUnavailableNoted = true
                 }
             } else if !cliUnavailableNoted {
                 showCLIUnavailable = true
@@ -1631,7 +1647,7 @@ public final class Session: @unchecked Sendable {
         wipeBuffers()
     }
 
-    private func invokeCLISync(path: String, text: String) -> String? {
+    private func invokeCLISync(path: String, text: String) -> Result<String, CleanupRefusal> {
         cliInvocations.append(
             CLIInvocation(
                 executablePath: path,
@@ -1654,11 +1670,12 @@ public final class Session: @unchecked Sendable {
             }
             try inPipe.fileHandleForWriting.close()
             process.waitUntilExit()
-            guard process.terminationStatus == 0 else { return nil }
             let data = outPipe.fileHandleForReading.readDataToEndOfFile()
-            return String(data: data, encoding: .utf8)
+            return CleanupOutput.validate(
+                raw: text, stdout: String(data: data, encoding: .utf8) ?? "",
+                exitStatus: process.terminationStatus)
         } catch {
-            return nil
+            return .failure(.launchFailed)
         }
     }
 
