@@ -85,12 +85,17 @@ find no text field:
 
 ### 4. Grant permissions
 
-On first launch, open the menu-bar icon. It lists any missing permissions with a button
-that opens the right System Settings pane. Allow Dictation under Privacy & Security:
+On first launch, Dictation asks for each permission in turn, and asks for the next one
+only after the previous one is allowed:
 
-- **Microphone**
-- **Accessibility** (to type into the focused field)
-- **Input Monitoring** (to see the left Command key; the talk key is inactive until this is allowed)
+1. **Microphone**: a macOS prompt; click Allow.
+2. **Accessibility** (to type into the focused field): click Open System Settings and turn
+   Dictation on.
+3. **Input Monitoring** (to see the left Command key; the talk key is inactive until this is
+   allowed): click Open System Settings, turn Dictation on, and choose Quit & Reopen if asked.
+
+The menu-bar icon also lists any missing permission with a button that opens the right
+System Settings pane, under Privacy & Security.
 
 Then click **Refresh permissions** in the menu. If a permission still shows as missing,
 quit and reopen the app.
