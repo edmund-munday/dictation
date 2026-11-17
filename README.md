@@ -39,7 +39,26 @@ The app uses `ggml-small.en-q5_1.bin` when present, otherwise `ggml-base.en.bin`
 same folder. If neither the model nor `whisper-cli` is found, it falls back to Apple's
 on-device speech recognition.
 
-### 3. Clone and build the app
+### 3. Install the app
+
+**From a release (no build tools needed).** Download `Dictation.zip` from the latest
+release at https://github.com/edmund-munday/dictation/releases, then:
+
+```sh
+cd ~/Downloads && ditto -x -k Dictation.zip .
+rm -rf /Applications/Dictation.app && mv Dictation.app /Applications/
+xattr -dr com.apple.quarantine /Applications/Dictation.app
+open /Applications/Dictation.app
+```
+
+The release build is signed ad hoc (not by Apple), so the `xattr` line is needed or macOS
+refuses to open it. Each new release counts as a new app for permissions: remove Dictation
+from the three lists in step 4 and allow it again.
+
+To publish a new release, run the **Release Mac app** workflow from the repository's
+Actions tab, or push a tag such as `v0.2`. It builds on a GitHub-hosted Mac.
+
+**Or build it yourself:**
 
 ```sh
 git clone https://github.com/edmund-munday/dictation.git ~/dictation
@@ -50,6 +69,19 @@ open /Applications/Dictation.app
 ```
 
 The app lives in the menu bar (no Dock icon).
+
+**Packaging rules.** Breaking any of these makes the app run but hear only silence and
+find no text field:
+
+- Install only to `/Applications/Dictation.app`. The bundle name must end in `.app`;
+  otherwise macOS treats it as a folder and `open` does not start it.
+- Copy a built or saved app with `ditto` or `cp -R` so the signature stays intact.
+- Start it only with `open /Applications/Dictation.app`, from Finder, or as a login item.
+  Never run `Contents/MacOS/Dictation` directly from a shell, a script or an agent session.
+  macOS then checks the Microphone and Accessibility permissions of whatever started the
+  binary (for example Terminal or Claude Code), not those of Dictation.
+- Keep a backup of an older build as `Dictation-<commit>.app` (ending in `.app`), never as
+  `Dictation.app-<commit>`.
 
 ### 4. Grant permissions
 
@@ -185,6 +217,13 @@ open /Applications/Dictation.app
 Re-grant the permissions afterwards unless you set up the signing certificate (step 4).
 
 ## Troubleshooting
+
+- **Every dictation comes out as "you" (or "Subs by ..."), and the panel says no text field
+  was focused:** the app was started from a shell, so macOS checks the permissions of the
+  launching program instead of Dictation's. Check with
+  `ps -axo ppid,command | grep '[D]ictation.app/Contents/MacOS'`: the parent process id
+  must be `1`. To fix it, run `osascript -e 'quit app "Dictation"'` then
+  `open /Applications/Dictation.app`.
 
 - **Nothing happens when holding Command:** Input Monitoring is missing, or the app was
   rebuilt; re-allow it and click Refresh permissions.

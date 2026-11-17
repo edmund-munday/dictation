@@ -1,0 +1,32 @@
+name: Release Mac app
+
+# Builds Dictation.app on a GitHub-hosted Mac and attaches Dictation.zip to a release.
+# Run it from the Actions tab (Run workflow) or by pushing a tag such as v0.2.
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: scripts/build-app.sh
+      - name: Check bundle
+        run: |
+          test -x build/Dictation.app/Contents/MacOS/Dictation
+          codesign --verify --strict build/Dictation.app
+      - name: Package
+        run: ditto -c -k --keepParent build/Dictation.app Dictation.zip
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then TAG="${GITHUB_REF_NAME}"; else TAG="build-$(git rev-parse --short HEAD)"; fi
+          gh release create "$TAG" Dictation.zip --target "$GITHUB_SHA" --title "Dictation $TAG" \
+            --notes "Built from $(git rev-parse --short HEAD). Install steps: see README, Install from a release."
