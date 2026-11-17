@@ -15,12 +15,35 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+      - name: Import signing certificate
+        # Signs with the same self-signed certificate as earlier local builds, so macOS keeps
+        # Microphone, Accessibility and Input Monitoring grants across releases.
+        env:
+          SIGNING_P12: ${{ secrets.SIGNING_P12 }}
+          SIGNING_P12_PASSWORD: ${{ secrets.SIGNING_P12_PASSWORD }}
+        run: |
+          test -n "$SIGNING_P12" && test -n "$SIGNING_P12_PASSWORD" || { echo "SIGNING_P12 / SIGNING_P12_PASSWORD secrets missing"; exit 1; }
+          KC="$RUNNER_TEMP/signing.keychain-db"
+          KCPW="$(openssl rand -hex 16)"
+          printf '%s' "$SIGNING_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$KCPW" "$KC"
+          security set-keychain-settings -lut 3600 "$KC"
+          security unlock-keychain -p "$KCPW" "$KC"
+          security import "$RUNNER_TEMP/cert.p12" -k "$KC" -P "$SIGNING_P12_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KCPW" "$KC" >/dev/null
+          security list-keychains -d user -s "$KC" $(security list-keychains -d user | tr -d '"')
+          rm -f "$RUNNER_TEMP/cert.p12"
+          security find-certificate -c "Snip Local Code Signing" "$KC" >/dev/null
       - name: Build
+        env:
+          DICTATION_SIGN_ID: Snip Local Code Signing
         run: scripts/build-app.sh
       - name: Check bundle
         run: |
           test -x build/Dictation.app/Contents/MacOS/Dictation
           codesign --verify --strict build/Dictation.app
+          codesign -d -r- build/Dictation.app 2>&1 | grep -q 'certificate root = H"ac7f98ba9a43af06799c4ee5dcdbd065f3955ab0"' \
+            || { echo "app is not signed with the stable certificate"; codesign -d -r- build/Dictation.app; exit 1; }
       - name: Package
         run: ditto -c -k --keepParent build/Dictation.app Dictation.zip
       - name: Publish release

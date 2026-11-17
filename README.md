@@ -51,9 +51,10 @@ xattr -dr com.apple.quarantine /Applications/Dictation.app
 open /Applications/Dictation.app
 ```
 
-The release build is signed ad hoc (not by Apple), so the `xattr` line is needed or macOS
-refuses to open it. Each new release counts as a new app for permissions: remove Dictation
-from the three lists in step 4 and allow it again.
+The release build is signed with a self-signed certificate (not by Apple), so the `xattr`
+line is needed or macOS refuses to open it. Every release is signed with the same
+certificate (the `SIGNING_P12` and `SIGNING_P12_PASSWORD` repository secrets), so
+permissions granted to one release carry over to the next.
 
 To publish a new release, run the **Release Mac app** workflow from the repository's
 Actions tab, or push a tag such as `v0.2`. It builds on a GitHub-hosted Mac.
