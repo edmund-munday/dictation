@@ -45,6 +45,7 @@ final class AppModel: ObservableObject {
     private var partialTimer: DispatchSourceTimer?
     private var lastPartial = Date.distantPast
     private let panelController = FloatingPanelController()
+    private var permissionSequence = PermissionRequestSequence()
 
     init() {
         let support = FileManager.default.homeDirectoryForCurrentUser
@@ -124,25 +125,38 @@ final class AppModel: ObservableObject {
         requestMissingPermissions()
     }
 
-    /// Asks macOS for permissions that are still undecided so the system prompts appear
-    /// (the probe never prompts, and the mic gate blocks the hold before audio starts).
+    /// Asks macOS for missing permissions one at a time (macOS shows only one prompt when
+    /// several are requested together). The next request goes out only after the current
+    /// permission is granted; grants made in System Settings are picked up by the timer.
     private func requestMissingPermissions() {
-        if AVCaptureDevice.authorizationStatus(for: .audio) == .notDetermined {
-            AVCaptureDevice.requestAccess(for: .audio) { [weak self] _ in
-                DispatchQueue.main.async { self?.refreshPermissions() }
-            }
-        }
-        if !CGPreflightListenEventAccess() { _ = CGRequestListenEventAccess() }
-        if !AXIsProcessTrusted() {
-            let opts = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
-            _ = AXIsProcessTrustedWithOptions(opts)
-        }
-        // Pick up grants made in System Settings without a relaunch.
+        requestNextPermission()
         Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] t in
             guard let self else { t.invalidate(); return }
             let before = self.permissions
             self.refreshPermissions()
+            self.requestNextPermission()
             if self.permissions.missing.isEmpty && before.missing.isEmpty { t.invalidate() }
+        }
+    }
+
+    private func requestNextPermission() {
+        guard let kind = permissionSequence.next(granted: permissions.granted) else { return }
+        NSLog("Dictation: requesting %@ permission", kind.title)
+        switch kind {
+        case .microphone:
+            AVCaptureDevice.requestAccess(for: .audio) { [weak self] _ in
+                DispatchQueue.main.async {
+                    self?.refreshPermissions()
+                    self?.requestNextPermission()
+                }
+            }
+        case .accessibility:
+            let opts = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+            _ = AXIsProcessTrustedWithOptions(opts)
+        case .inputMonitoring:
+            _ = CGRequestListenEventAccess()
+        case .speechRecognition:
+            break
         }
     }
 

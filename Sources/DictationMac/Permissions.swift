@@ -28,7 +28,7 @@ public enum PermissionKind: String, CaseIterable, Sendable, Hashable {
     }
 }
 
-/// Which permissions are missing. Reporting only; the app never requests a grant itself.
+/// Which permissions are missing. Reporting only; `PermissionRequestSequence` decides what to request.
 public struct PermissionReport: Sendable, Equatable {
     public var granted: Set<PermissionKind>
     public var needsSpeechRecognition: Bool
@@ -49,5 +49,29 @@ public struct PermissionReport: Sendable, Equatable {
         let m = missing
         if m.isEmpty { return "All permissions granted." }
         return "Missing: " + m.map(\.title).joined(separator: ", ")
+    }
+}
+
+/// Asks macOS for one permission at a time. When several prompts are requested together,
+/// macOS shows only one, so the next request waits until the current permission is granted.
+/// Order: Microphone (in-app prompt), Accessibility (live grant), Input Monitoring last
+/// because macOS often asks to relaunch the app after that grant.
+public struct PermissionRequestSequence: Sendable, Equatable {
+    public static let order: [PermissionKind] = [.microphone, .accessibility, .inputMonitoring]
+    public private(set) var requested: Set<PermissionKind> = []
+
+    public init() {}
+
+    /// The first permission in `order` that is not yet granted.
+    public static func current(granted: Set<PermissionKind>) -> PermissionKind? {
+        order.first { !granted.contains($0) }
+    }
+
+    /// The permission to request now, or nil when the current one is already requested
+    /// and still waiting for a grant, or when every permission in `order` is granted.
+    public mutating func next(granted: Set<PermissionKind>) -> PermissionKind? {
+        guard let kind = Self.current(granted: granted), !requested.contains(kind) else { return nil }
+        requested.insert(kind)
+        return kind
     }
 }
