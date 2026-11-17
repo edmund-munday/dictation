@@ -61,4 +61,30 @@ final class CallAndPermissionTests: XCTestCase {
         XCTAssertEqual(PermissionReport(granted: all, needsSpeechRecognition: true).missing, [.speechRecognition])
         XCTAssertTrue(PermissionReport(granted: all, needsSpeechRecognition: false).summary.contains("granted"))
     }
+
+    func test_M14_permissionsAreRequestedOneAtATimeAfterEachGrant() {
+        var seq = PermissionRequestSequence()
+        XCTAssertEqual(seq.next(granted: []), .microphone)
+        // Microphone still undecided: nothing else is requested while its prompt is up.
+        XCTAssertNil(seq.next(granted: []))
+        XCTAssertNil(seq.next(granted: []))
+        // Granting Microphone releases Accessibility, and only Accessibility.
+        XCTAssertEqual(seq.next(granted: [.microphone]), .accessibility)
+        XCTAssertNil(seq.next(granted: [.microphone]))
+        XCTAssertEqual(seq.next(granted: [.microphone, .accessibility]), .inputMonitoring)
+        XCTAssertNil(seq.next(granted: [.microphone, .accessibility]))
+        XCTAssertNil(seq.next(granted: [.microphone, .accessibility, .inputMonitoring]))
+        XCTAssertEqual(seq.requested, [.microphone, .accessibility, .inputMonitoring])
+    }
+
+    func test_M14_permissionSequenceSkipsGrantsAlreadyHeldAndWaitsOnADenial() {
+        var seq = PermissionRequestSequence()
+        XCTAssertEqual(seq.next(granted: [.microphone]), .accessibility)
+        // Accessibility not granted: Input Monitoring is never requested.
+        for _ in 0..<5 { XCTAssertNil(seq.next(granted: [.microphone])) }
+        XCTAssertFalse(seq.requested.contains(.inputMonitoring))
+        var done = PermissionRequestSequence()
+        XCTAssertNil(done.next(granted: [.microphone, .accessibility, .inputMonitoring]))
+        XCTAssertTrue(done.requested.isEmpty)
+    }
 }
