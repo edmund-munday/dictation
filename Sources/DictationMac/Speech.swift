@@ -239,20 +239,29 @@ public enum ProcessRunner {
         process.standardInput = stdin == nil ? FileHandle.nullDevice : input
         let done = DispatchSemaphore(value: 0)
         process.terminationHandler = { _ in done.signal() }
+        // One reader drains stdout until EOF so the pipe never fills. The
+        // result is taken only after that reader has finished, or after a
+        // short grace period if a grandchild keeps the pipe open, so output
+        // written just before exit is never lost to a race.
         var collected = Data()
         let lock = NSLock()
-        out.fileHandleForReading.readabilityHandler = { handle in
-            let chunk = handle.availableData
-            lock.lock()
-            collected.append(chunk)
-            lock.unlock()
-        }
+        let reader = out.fileHandleForReading
+        let readerDone = DispatchSemaphore(value: 0)
         let start = Date()
         do {
             try process.run()
         } catch {
-            out.fileHandleForReading.readabilityHandler = nil
             return nil
+        }
+        DispatchQueue.global(qos: .userInitiated).async {
+            while true {
+                let chunk = reader.availableData
+                if chunk.isEmpty { break }
+                lock.lock()
+                collected.append(chunk)
+                lock.unlock()
+            }
+            readerDone.signal()
         }
         if let stdin {
             try? input.fileHandleForWriting.write(contentsOf: Data(stdin.utf8))
@@ -262,13 +271,10 @@ public enum ProcessRunner {
             process.terminate()
             kill(-process.processIdentifier, SIGTERM)
             _ = done.wait(timeout: .now() + 1)
-            out.fileHandleForReading.readabilityHandler = nil
             return nil
         }
-        out.fileHandleForReading.readabilityHandler = nil
-        let rest = out.fileHandleForReading.readDataToEndOfFile()
+        _ = readerDone.wait(timeout: .now() + 2)
         lock.lock()
-        collected.append(rest)
         let text = String(data: collected, encoding: .utf8) ?? ""
         lock.unlock()
         return Result(status: process.terminationStatus, stdout: text, seconds: Date().timeIntervalSince(start))
