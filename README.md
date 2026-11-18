@@ -132,6 +132,17 @@ keep the key out of the repository. Cleanup POSTs to `<url>/v1/chat`. `model` an
 Nothing dictated leaves the Mac: speech recognition is local and clean-up goes to a
 llama.cpp server on `127.0.0.1`.
 
+From the repository folder, run:
+
+```sh
+bash scripts/setup-local-cleanup.sh
+```
+
+It does steps 1 to 4 below: installs llama.cpp, downloads the model (about 3.3 GB) if it
+is missing, starts the model server as a LaunchAgent, writes `gateway.json` (backing up any
+existing one) and restarts Dictation. It is safe to run again. The manual steps are below
+for reference.
+
 1. Install llama.cpp and download a model (about 3.3 GB):
 
    ```sh
