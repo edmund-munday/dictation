@@ -18,6 +18,23 @@ final class CallAndPermissionTests: XCTestCase {
             CallDetector.activeCall(runningBundleIDs: ["com.apple.Notes"], micInUseElsewhere: true), CallAppKind.none)
     }
 
+    func test_M13_callAppLeftOpenWhileAnotherProgramRecordsIsNotACall() {
+        // Teams open all day while a browser records: not a call.
+        XCTAssertEqual(
+            CallDetector.activeCall(capturingBundleIDs: ["com.google.Chrome", "com.edmundmunday.dictation.hand"]),
+            CallAppKind.none)
+        XCTAssertEqual(CallDetector.activeCall(capturingBundleIDs: []), CallAppKind.none)
+    }
+
+    func test_M13_callAppOrItsHelperRecordingIsACall() {
+        XCTAssertEqual(CallDetector.activeCall(capturingBundleIDs: ["com.google.Chrome", "us.zoom.xos"]), .zoomMeeting)
+        XCTAssertEqual(CallDetector.activeCall(capturingBundleIDs: ["com.microsoft.teams2.helper"]), .teamsMeeting)
+        XCTAssertEqual(CallDetector.activeCall(capturingBundleIDs: ["com.apple.avconferenced"]), .faceTime)
+        XCTAssertEqual(CallDetector.activeCall(capturingBundleIDs: ["Cisco-Systems.Spark"]), .webexMeeting)
+        // A different app that merely shares a prefix is not a helper.
+        XCTAssertEqual(CallDetector.callKind(forCapturingBundleID: "us.zoom.xosother"), CallAppKind.none)
+    }
+
     func test_M13_holdDuringCallIsBlockedWithPauseMessageAndNoMic() throws {
         let h = try MacHarness()
         let audio = CountingAudio()
