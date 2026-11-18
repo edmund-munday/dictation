@@ -16,3 +16,10 @@ jobs:
         run: scripts/test.sh
       - name: Build app
         run: scripts/build-app.sh
+
+  signing:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Stable signing identity across rebuilds
+        run: scripts/ci-signing-check.sh
