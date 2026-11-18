@@ -343,8 +343,7 @@ final class AppModel: ObservableObject {
     private func refreshCallState() {
         let running = NSWorkspace.shared.runningApplications.compactMap(\.bundleIdentifier)
         let front = NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? ""
-        let kind = CallDetector.activeCall(runningBundleIDs: running,
-                                           micInUseElsewhere: CallDetector.defaultInputIsRunningSomewhere())
+        let kind = CallDetector.currentCall(runningBundleIDs: running)
         session.ingestFrontmostApp(FrontmostApp(timestamp: clock.now, bundleID: front, callKind: kind))
     }
 
