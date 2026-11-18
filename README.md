@@ -101,10 +101,11 @@ System Settings pane, under Privacy & Security.
 Then click **Refresh permissions** in the menu. If a permission still shows as missing,
 quit and reopen the app.
 
-The build is signed ad hoc, so macOS treats each rebuild as a new app: after rebuilding,
-remove Dictation from those three lists and allow it again. To avoid that, create a
-code-signing certificate named `Dictation Local Code Signing` in Keychain Access
-(Certificate Assistant, type Code Signing); `scripts/build-app.sh` uses it automatically.
+macOS ties these permissions to the app's signature. **Update Dictation.command** creates a
+local certificate named `Dictation Local Code Signing` the first time it runs
+(`scripts/ensure-signing-identity.sh`), and `scripts/build-app.sh` signs with it, so later
+updates keep the permissions. Without it the build is signed ad hoc, and after each
+rebuild you must remove Dictation from those lists and allow it again.
 
 ### 5. Start at login (optional)
 
@@ -221,9 +222,11 @@ not pick them on the work laptop.
 
 In Finder, open the `dictation` folder and double-click **Update Dictation.command**. It
 gets the latest version, rebuilds the app, installs it in /Applications and reopens it.
-The first time, macOS may ask whether to open it; choose Open.
+The first time, macOS may ask whether to open it; choose Open. The first update also
+creates the signing certificate: if macOS asks whether codesign may use a key, enter your
+login password and choose Always Allow. Grant the permissions once more after that first
+update (remove Dictation from the lists and add it again); later updates keep them.
 
-Re-grant the permissions afterwards unless you set up the signing certificate (step 4).
 
 ## Troubleshooting
 
