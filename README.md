@@ -132,13 +132,8 @@ keep the key out of the repository. Cleanup POSTs to `<url>/v1/chat`. `model` an
 Nothing dictated leaves the Mac: speech recognition is local and clean-up goes to a
 llama.cpp server on `127.0.0.1`.
 
-From the repository folder, run:
-
-```sh
-bash scripts/setup-local-cleanup.sh
-```
-
-It does steps 1 to 4 below: installs llama.cpp, downloads the model (about 3.3 GB) if it
+In Finder, open the `dictation` folder and double-click **Set Up Local Clean-up.command**
+(or run `bash scripts/setup-local-cleanup.sh`). It does steps 1 to 4 below: installs llama.cpp, downloads the model (about 3.3 GB) if it
 is missing, starts the model server as a LaunchAgent, writes `gateway.json` (backing up any
 existing one) and restarts Dictation. It is safe to run again. The manual steps are below
 for reference.
@@ -224,12 +219,9 @@ not pick them on the work laptop.
 
 ## Updating
 
-```sh
-cd ~/dictation && git pull && scripts/build-app.sh
-osascript -e 'quit app "Dictation"'
-rm -rf /Applications/Dictation.app && cp -R build/Dictation.app /Applications/
-open /Applications/Dictation.app
-```
+In Finder, open the `dictation` folder and double-click **Update Dictation.command**. It
+gets the latest version, rebuilds the app, installs it in /Applications and reopens it.
+The first time, macOS may ask whether to open it; choose Open.
 
 Re-grant the permissions afterwards unless you set up the signing certificate (step 4).
 
