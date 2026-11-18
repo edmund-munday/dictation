@@ -25,7 +25,35 @@ LOG="/tmp/dictation-llm.log"
 step() { printf '\n==> %s\n' "$1"; }
 fail() { printf 'Error: %s\n' "$1" >&2; exit 1; }
 
+# Starts the model server. The LaunchAgent normally loads into the logged-in desktop
+# session (gui domain). That domain is missing under sudo or over SSH, where bootstrap
+# fails with "125: domain does not support specified action", so fall back to the
+# legacy load, then the user domain, then a plain background process for this login
+# (the LaunchAgent still starts it at every later login).
+start_server() {
+  local uid; uid="$(id -u)"
+  launchctl bootout "gui/$uid/$LABEL" 2>/dev/null || true
+  launchctl bootout "user/$uid/$LABEL" 2>/dev/null || true
+  launchctl unload "$PLIST" 2>/dev/null || true
+  pkill -f "$SERVER -m $MODEL_PATH" 2>/dev/null || true
+  for _ in $(seq 1 10); do launchctl list "$LABEL" >/dev/null 2>&1 || break; sleep 1; done
+
+  if launchctl bootstrap "gui/$uid" "$PLIST" 2>/dev/null; then
+    echo "Started as a LaunchAgent in the desktop session."; return
+  fi
+  if launchctl load -w "$PLIST" 2>/dev/null && launchctl list "$LABEL" >/dev/null 2>&1; then
+    echo "Started as a LaunchAgent (load)."; return
+  fi
+  if launchctl bootstrap "user/$uid" "$PLIST" 2>/dev/null; then
+    echo "Started as a LaunchAgent in the user session."; return
+  fi
+  echo "macOS would not start the LaunchAgent from this terminal; it will start at the next login."
+  echo "Starting the server in the background for now."
+  nohup "$SERVER" -m "$MODEL_PATH" --host 127.0.0.1 --port "$PORT" >>"$LOG" 2>&1 &
+}
+
 [ "$(uname -s)" = "Darwin" ] || fail "this script is for macOS."
+[ "$(id -u)" -ne 0 ] || fail "run this without sudo, as your normal user."
 command -v brew >/dev/null || fail "Homebrew is not installed. Install it from https://brew.sh, then run this again."
 
 step "llama.cpp"
@@ -68,8 +96,7 @@ cat > "$PLIST" <<PLIST
 </plist>
 PLIST
 plutil -lint "$PLIST" >/dev/null || fail "the LaunchAgent file is not valid: $PLIST"
-launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null || true
-launchctl bootstrap "gui/$(id -u)" "$PLIST"
+start_server
 
 echo "Waiting for the model to load (up to 2 minutes) ..."
 ok=""
