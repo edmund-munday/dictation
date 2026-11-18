@@ -19,6 +19,7 @@ jobs:
 
   signing:
     runs-on: macos-15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - name: Stable signing identity across rebuilds
