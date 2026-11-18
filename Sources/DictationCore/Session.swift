@@ -80,6 +80,9 @@ public final class Session: @unchecked Sendable {
     private var talkKeyDown = false
     private var capture: HoldCapture?
     private var deferred: DeferredCommit?
+    /// When a blocked-hold message shown at release (secure field, call, muted) is hidden.
+    private var blockedPanelHideAt: Duration?
+    static let blockedPanelLinger: Duration = .seconds(2)
     private var llmJob: LLMJob?
     private static let llmSynchronousGrace: TimeInterval = 2.5
     private var commitGeneration = 0
@@ -663,6 +666,7 @@ public final class Session: @unchecked Sendable {
         guard othersDown.isEmpty else { return }
 
         ignoreBackgroundCleanup()
+        blockedPanelHideAt = nil
         if cleanupBackend == .gateway, gatewayCleaner != nil { sentenceTracker = SentenceTracker() }
         talkKeyDown = true
         pending = nil
@@ -708,7 +712,7 @@ public final class Session: @unchecked Sendable {
         }
         if let blocked = hold.blockedMessage {
             ignoreBackgroundCleanup()
-            panelState = PanelState(isVisible: true, text: blocked)
+            showBlockedPanel(blocked, at: time)
             return
         }
 
@@ -727,6 +731,13 @@ public final class Session: @unchecked Sendable {
         }
 
         finishUtterance(hold: hold, releaseAt: time, maxLength: false)
+    }
+
+    /// Shows why a released hold wrote nothing, then hides it after `blockedPanelLinger`
+    /// so the message never stays on screen after the talk key is up.
+    private func showBlockedPanel(_ text: String, at time: Duration) {
+        panelState = PanelState(isVisible: true, text: text)
+        blockedPanelHideAt = time + Self.blockedPanelLinger
     }
 
     private func cancelHold(hidePanel: Bool) {
@@ -775,7 +786,7 @@ public final class Session: @unchecked Sendable {
         guard !isSecureFocus, !(hold.focusAtDown.map(Self.isSecure) ?? false) else {
             ignoreRunningLLM()
             deferred = nil
-            panelState = PanelState(isVisible: true, text: MenuMessages.secure)
+            showBlockedPanel(MenuMessages.secure, at: releaseAt)
             wipeBuffers()
             return
         }
@@ -1251,6 +1262,10 @@ public final class Session: @unchecked Sendable {
 
     private func evaluateTimers() {
         evaluateBackgroundCleanup()
+        if let hideAt = blockedPanelHideAt, clock.now >= hideAt {
+            blockedPanelHideAt = nil
+            if !talkKeyDown, deferred == nil { panelState = .hidden }
+        }
         if let deadline = pendingCloseDeadline, !latchOn, deviceStillOpenAfterOff {
             if clock.now >= deadline {
                 faulted = true
