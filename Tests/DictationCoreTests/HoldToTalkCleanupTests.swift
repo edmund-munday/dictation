@@ -170,4 +170,30 @@ final class HoldToTalkCleanupTests: XCTestCase {
         h.clock.advance(by: .milliseconds(100))
         XCTAssertEqual(h.session.insertRequests.first?.text, expect)
     }
+
+    func test_R118_blockedHoldMessageHidesAfterRelease() throws {
+        let secure = try TestHarness()
+        secure.latchOn()
+        secure.focusEditable(role: .secureTextField, secure: true)
+        secure.pressTalkKey()
+        secure.speakWhileHeld("password")
+        secure.releaseTalkKey()
+        secure.clock.advance(by: .milliseconds(200))
+        XCTAssertEqual(secure.session.panel.text, MenuText.secure)
+        XCTAssertTrue(secure.session.panel.isVisible)
+        secure.clock.advance(by: .seconds(2))
+        XCTAssertFalse(secure.session.panel.isVisible, "secure-field message must not stay after release")
+        XCTAssertTrue(secure.session.insertRequests.isEmpty)
+
+        let call = try TestHarness()
+        call.latchOn()
+        call.focusEditable()
+        call.session.ingestFrontmostApp(FrontmostApp(timestamp: call.clock.now, bundleID: "us.zoom.xos", callKind: .zoomMeeting))
+        call.pressTalkKey()
+        call.releaseTalkKey()
+        call.clock.advance(by: .milliseconds(200))
+        XCTAssertTrue(call.session.panel.isVisible)
+        call.clock.advance(by: .seconds(2))
+        XCTAssertFalse(call.session.panel.isVisible, "call-paused message must not stay after release")
+    }
 }
