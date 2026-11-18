@@ -206,7 +206,7 @@ public final class AccessibilityBridge: FocusProvider, TextInserter {
         if role == .editableWebArea, !isSettable(element, kAXValueAttribute), !isSettable(element, kAXSelectedTextAttribute) {
             role = .none
         }
-        let secure = role == .secureTextField || IsSecureEventInputEnabled()
+        let secure = role == .secureTextField || SecureInputOwner.isOwned(byPID: pid)
 
         var selectionLength = 0
         var selectedText: String?
@@ -303,5 +303,18 @@ public final class AccessibilityBridge: FocusProvider, TextInserter {
         guard AXUIElementCopyAttributeValue(element, attribute as CFString, &value) == .success,
               let value else { return nil }
         return value as? T
+    }
+}
+
+/// Secure keyboard entry is a system-wide flag: a password field or a "Secure Keyboard
+/// Entry" setting in any app turns it on for every app. Treat it as blocking only when
+/// the focused app is the one holding it.
+enum SecureInputOwner {
+    static func isOwned(byPID pid: pid_t) -> Bool {
+        guard IsSecureEventInputEnabled() else { return false }
+        guard let session = CGSessionCopyCurrentDictionary() as? [String: Any],
+              let owner = (session["kCGSSessionSecureInputPID"] as? NSNumber)?.int32Value
+        else { return true }
+        return owner == pid
     }
 }
