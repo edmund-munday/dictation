@@ -17,6 +17,9 @@ if [ "${1:-}" != "--pulled" ]; then
   exec "$SELF" --pulled   # run the copy just pulled, in case this file changed
 fi
 
+echo "==> Signing certificate (keeps permissions across updates)"
+scripts/ensure-signing-identity.sh || finish 1
+
 echo "==> Building Dictation (a few minutes)"
 scripts/build-app.sh || finish 1
 

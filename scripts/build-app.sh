@@ -29,15 +29,22 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 # Sign with a stable local identity when available so TCC grants survive rebuilds
-# (ad-hoc signatures change cdhash every build). Override with DICTATION_SIGN_ID.
+# (ad-hoc signatures change cdhash every build). scripts/ensure-signing-identity.sh creates
+# "Dictation Local Code Signing". It is self-signed and not marked trusted, so look it up
+# among all identities (not only -v "valid" ones) and sign by its SHA-1 hash.
+# Override with DICTATION_SIGN_ID (a name or hash).
 SIGN_ID="${DICTATION_SIGN_ID:-}"
 if [ -z "$SIGN_ID" ]; then
   for c in "Dictation Local Code Signing" "Snip Local Code Signing"; do
-    if security find-identity -v -p codesigning 2>/dev/null | grep -q "\"$c\""; then SIGN_ID="$c"; break; fi
+    SIGN_ID="$(security find-identity -p codesigning 2>/dev/null | awk -v n="\"$c\"" 'index($0, n) {print $2; exit}')"
+    [ -n "$SIGN_ID" ] && break
   done
 fi
 if [ -n "$SIGN_ID" ]; then
-  codesign --force --sign "$SIGN_ID" "$APP" >/dev/null 2>&1 || { echo "warning: signing with $SIGN_ID failed; using ad-hoc"; codesign --force --sign - "$APP" >/dev/null 2>&1; }
+  if ! codesign --force --sign "$SIGN_ID" "$APP"; then
+    echo "warning: signing with $SIGN_ID failed (see above); using ad-hoc, so permissions must be granted again"
+    codesign --force --sign - "$APP" >/dev/null 2>&1
+  fi
 else
   codesign --force --sign - "$APP" >/dev/null 2>&1 || echo "warning: ad-hoc codesign failed"
 fi
