@@ -37,7 +37,7 @@ extendedKeyUsage = critical, codeSigning
 CNF
 "$OPENSSL" req -x509 -newkey rsa:2048 -nodes -days 3650 -config "$tmp/cert.cnf" \
   -keyout "$tmp/key.pem" -out "$tmp/cert.pem" 2>/dev/null
-pass="$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 24)"
+pass="$("$OPENSSL" rand -hex 16)"
 "$OPENSSL" pkcs12 -export -inkey "$tmp/key.pem" -in "$tmp/cert.pem" \
   -name "$NAME" -out "$tmp/id.p12" -passout "pass:$pass"
 security import "$tmp/id.p12" -k "$KEYCHAIN" -f pkcs12 -P "$pass" -T /usr/bin/codesign >/dev/null
