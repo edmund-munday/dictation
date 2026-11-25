@@ -97,4 +97,23 @@ final class CleanupSelectionTests: XCTestCase {
         h.clock.advance(by: .milliseconds(250))
         XCTAssertEqual(h.session.insertRequests.first?.text, "Hello there.")
     }
+
+    func test_R313_wrapperUsesLevelPromptAndIsRewrittenWhenLevelChanges() throws {
+        let h = try MacHarness()
+        let exe = try h.script(named: "claude", body: "printf 'Hello.'")
+        var sel = selector(h)
+        let candidate = try XCTUnwrap(sel.candidates.first { $0.name == "claude" })
+        let wrapper = try sel.makeWrapper(for: candidate, executable: exe)
+        let low = try String(contentsOf: wrapper, encoding: .utf8)
+        XCTAssertTrue(low.contains("MINIMAL"))
+        XCTAssertFalse(low.contains("POLISHED"))
+
+        sel.level = .high
+        sel.rewriteExistingWrappers()
+        let high = try String(contentsOf: wrapper, encoding: .utf8)
+        XCTAssertTrue(high.contains("POLISHED"))
+        XCTAssertFalse(high.contains("MINIMAL"))
+        let others = try FileManager.default.contentsOfDirectory(atPath: wrapper.deletingLastPathComponent().path)
+        XCTAssertEqual(others, ["cleanup-claude"], "only wrappers that already existed are rewritten")
+    }
 }
