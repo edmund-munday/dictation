@@ -5,7 +5,7 @@ import FoundationNetworking
 #endif
 import XCTest
 
-/// R310-R312: a low/high cleanup level picks the LLM prompt.
+/// R310-R312: a low/high cleanup level picks the LLM prompt. R314: gateway caller identity.
 final class CleanupLevelTests: XCTestCase {
     func test_R310_levelDefaultsToLowAndPersists() throws {
         let suite = "CleanupLevelTests-\(UUID().uuidString)"
@@ -61,20 +61,62 @@ final class CleanupLevelTests: XCTestCase {
 
         XCTAssertEqual(try transport.systemPrompts(), [CleanupPrompt.text(for: .low), CleanupPrompt.text(for: .high)])
     }
+
+    /// The gateway refuses /v1/chat with HTTP 400 unless the body names `caller` and a
+    /// non-placeholder `job_id` or `run_id`; without them every dictation fell back to local rules.
+    func test_R314_gatewayBodyCarriesCallerAndFreshRunID() throws {
+        let transport = RecordingTransport()
+        let config = GatewayConfig(url: try XCTUnwrap(URL(string: "https://gateway.invalid")), key: "test-only-key")
+        let cleaner = GatewayCleaner(config: config, transport: transport)
+        cleaner.clean("ship it") { _ in }
+        cleaner.clean("ship it") { _ in }
+
+        let bodies = try transport.bodies()
+        let placeholders: Set<String> = ["", "n/a", "na", "tbd", "todo", "none", "null", "unknown", "-", "?"]
+        var runIDs: [String] = []
+        for body in bodies {
+            let caller = try XCTUnwrap(body["caller"] as? String)
+            let runID = try XCTUnwrap(body["run_id"] as? String)
+            XCTAssertEqual(caller, "dictation")
+            XCTAssertFalse(placeholders.contains(runID.lowercased()))
+            XCTAssertLessThanOrEqual(runID.count, 200)
+            runIDs.append(runID)
+        }
+        XCTAssertEqual(Set(runIDs).count, 2, "each request has its own run_id")
+    }
+
+    func test_R314_localOpenAIServerBodyHasNoCallerFields() throws {
+        let transport = RecordingTransport(reply: ["choices": [["message": ["content": "Ship it."]]]])
+        let config = GatewayConfig(url: try XCTUnwrap(URL(string: "http://127.0.0.1:11434")), key: "",
+                                   api: .openai)
+        GatewayCleaner(config: config, transport: transport).clean("ship it") { _ in }
+        let body = try XCTUnwrap(transport.bodies().first)
+        XCTAssertNil(body["caller"])
+        XCTAssertNil(body["run_id"])
+    }
 }
 
 private final class RecordingTransport: GatewayHTTPTransport {
     private(set) var requests: [URLRequest] = []
+    private let reply: [String: Any]
+
+    init(reply: [String: Any] = ["text": "Ship it."]) {
+        self.reply = reply
+    }
 
     func send(_ request: URLRequest, completion: @escaping (Result<(Data, Int), Error>) -> Void) {
         requests.append(request)
-        completion(.success((try! JSONSerialization.data(withJSONObject: ["text": "Ship it."]), 200)))
+        completion(.success((try! JSONSerialization.data(withJSONObject: reply), 200)))
+    }
+
+    func bodies() throws -> [[String: Any]] {
+        try requests.map { request in
+            try XCTUnwrap(JSONSerialization.jsonObject(with: XCTUnwrap(request.httpBody)) as? [String: Any])
+        }
     }
 
     func systemPrompts() throws -> [String] {
-        try requests.map { request in
-            let body = try XCTUnwrap(
-                JSONSerialization.jsonObject(with: XCTUnwrap(request.httpBody)) as? [String: Any])
+        try bodies().map { body in
             let messages = try XCTUnwrap(body["messages"] as? [[String: String]])
             return try XCTUnwrap(messages.first?["content"])
         }
