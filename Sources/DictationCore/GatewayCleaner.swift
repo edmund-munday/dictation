@@ -167,6 +167,9 @@ public final class GatewayCleaner {
                 "max_output_tokens": 600,
                 "timeout_ms": Int(config.timeoutSeconds * 1_000),
                 "tool_tag": "dictation:cleanup",
+                // The gateway's caller contract refuses /v1/chat without these (HTTP 400).
+                "caller": "dictation",
+                "run_id": UUID().uuidString,
             ]
         guard let data = try? JSONSerialization.data(withJSONObject: body) else {
             completion(.error)
