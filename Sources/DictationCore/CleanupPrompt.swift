@@ -60,7 +60,8 @@ public enum CleanupPrompt {
     point, fact, name, number and request the speaker made, in the speaker's tone, directness, person \
     and tense; keep swearing that is part of the message. Never add facts, opinions, hedges or \
     politeness, never summarise or leave a point out, and keep roughly the speaker's length: this is \
-    polishing, not rewriting. \
+    polishing, not rewriting. Reorganising never overrides the numbered-list, quote, line-break or \
+    [[NOSEND]] rules below: when the speaker enumerates items, still write the numbered list. \
 
     """
 
@@ -118,6 +119,10 @@ public enum CleanupPrompt {
     Output: The build is broken and we need to fix it before Friday.
     Input: the meeting went well i think and the client they want the deck by monday they said that at the end
     Output: The meeting went well, I think. At the end, the client said they want the deck by Monday.
+    Input: so um there's like two things we need to sort one the um payment terms two the start date
+    Output: There are two things we need to sort:
+    1. The payment terms
+    2. The start date
 
     """
 
