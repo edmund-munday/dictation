@@ -19,6 +19,7 @@ final class AppModel: ObservableObject {
     @Published var menuTitle = "Resume dictation (Ctrl-Opt-Space)"
     @Published var coreMenuText = ""
     @Published var cleanupLabel = "Cleanup: local rules"
+    @Published var cleanupLevel = CleanupLevel.stored(in: .standard)
     @Published var speechLabel = ""
     @Published var permissions = PermissionReport(granted: [], needsSpeechRecognition: false)
     @Published var tapRunning = false
@@ -91,6 +92,7 @@ final class AppModel: ObservableObject {
             if let gatewayConfig {
                 let cleaner = GatewayCleaner(config: gatewayConfig)
                 cleaner.dictionaryTerms = { UserDictionary(fileURL: dictionaryURL).terms }
+                cleaner.level = { CleanupLevel.stored(in: .standard) }
                 session.setGatewayCleaner(cleaner)
                 session.setCleanupBackend(.gateway)
             } else {
@@ -269,6 +271,16 @@ final class AppModel: ObservableObject {
         mediaQueue.async { self.mediaCoordinator.enabled = on }
     }
 
+    /// Applies to the next dictation: the gateway reads the level per request and the CLI
+    /// wrappers are rewritten in place.
+    func setCleanupLevel(_ level: CleanupLevel) {
+        cleanupLevel = level
+        UserDefaults.standard.set(level.rawValue, forKey: CleanupLevel.defaultsKey)
+        let selector = cliSelector(support: FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Application Support/Dictation"))
+        DispatchQueue.global(qos: .utility).async { selector.rewriteExistingWrappers() }
+    }
+
     func setTailTranscriptionEnabled(_ on: Bool) {
         tailTranscriptionEnabled = on
         UserDefaults.standard.set(on, forKey: HoldPipeline.tailTranscriptionDefaultKey)
@@ -318,11 +330,16 @@ final class AppModel: ObservableObject {
         self.tap = tapRunning ? tap : nil
     }
 
-    private func chooseCleanup(support: URL) {
-        let selector = CleanupCLISelector(
+    private func cliSelector(support: URL) -> CleanupCLISelector {
+        CleanupCLISelector(
             searchDirectories: CleanupCLISelector.defaultSearchDirectories(),
             wrapperDirectory: support.appendingPathComponent("cleanup"),
-            probeTimeout: 20)
+            probeTimeout: 20,
+            level: CleanupLevel.stored(in: .standard))
+    }
+
+    private func chooseCleanup(support: URL) {
+        let selector = cliSelector(support: support)
         DispatchQueue.global(qos: .utility).async { [weak self] in
             let selection = selector.select()
             guard let self else { return }

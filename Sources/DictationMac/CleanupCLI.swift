@@ -55,15 +55,28 @@ public struct CleanupCLISelector {
     public var wrapperDirectory: URL
     public var probeTimeout: TimeInterval
     public var candidates: [CLICandidate]
+    /// The cleanup level baked into each wrapper's prompt.
+    public var level: CleanupLevel
 
     public init(
         searchDirectories: [URL], wrapperDirectory: URL, probeTimeout: TimeInterval = 20,
-        candidates: [CLICandidate] = CLICandidate.all
+        candidates: [CLICandidate] = CLICandidate.all, level: CleanupLevel = .default
     ) {
         self.searchDirectories = searchDirectories
         self.wrapperDirectory = wrapperDirectory
         self.probeTimeout = probeTimeout
         self.candidates = candidates
+        self.level = level
+    }
+
+    /// Rewrites wrappers that already exist with the current `level`, without re-probing,
+    /// so a level change applies to the CLI already in use.
+    public func rewriteExistingWrappers() {
+        for candidate in candidates {
+            let path = wrapperDirectory.appendingPathComponent("cleanup-\(candidate.name)").path
+            guard FileManager.default.fileExists(atPath: path), let exe = locate(candidate.name) else { continue }
+            _ = try? makeWrapper(for: candidate, executable: exe)
+        }
     }
 
     public static func defaultSearchDirectories() -> [URL] {
@@ -101,7 +114,7 @@ public struct CleanupCLISelector {
         PATH=\(pathDirs):"$PATH"
         export PATH
         transcript=$(cat)
-        prompt=\(shellQuote(CleanupPrompt.text))
+        prompt=\(shellQuote(CleanupPrompt.text(for: level)))
         exec \(shellQuote(executable.path)) \(leading) "$prompt
 
         Transcript:
