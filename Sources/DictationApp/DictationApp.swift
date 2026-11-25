@@ -61,6 +61,12 @@ struct MenuContent: View {
         Divider()
         Text(model.speechLabel)
         Text(model.cleanupLabel)
+        Picker("Cleanup level", selection: Binding(get: { model.cleanupLevel },
+                                                   set: { model.setCleanupLevel($0) })) {
+            ForEach(CleanupLevel.allCases, id: \.self) { level in
+                Text(level.menuTitle).tag(level)
+            }
+        }
         Button("Re-check cleanup CLIs") { model.rechooseCleanup() }
         Button("Open dictionary") { model.openDictionary() }
         Toggle("Auto-send in chat apps", isOn: Binding(get: { model.autoSendEnabled },

@@ -102,6 +102,8 @@ public final class GatewayCleaner {
     private let config: GatewayConfig
     private let transport: GatewayHTTPTransport
     public var dictionaryTerms: () -> [String] = { [] }
+    /// Read on every request, so a menu change applies to the next dictation.
+    public var level: () -> CleanupLevel = { .default }
 
     public init(config: GatewayConfig, transport: GatewayHTTPTransport = URLSessionGatewayTransport()) {
         self.config = config
@@ -147,7 +149,7 @@ public final class GatewayCleaner {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         let dictionarySection = UserDictionary.gatewayLine(terms: dictionaryTerms()).map { "\n" + $0 } ?? ""
         let messages = [
-            ["role": "system", "content": CleanupPrompt.text + dictionarySection + (CommandRouter.promptSection(for: plugins) ?? "")],
+            ["role": "system", "content": CleanupPrompt.text(for: level()) + dictionarySection + (CommandRouter.promptSection(for: plugins) ?? "")],
             ["role": "user", "content": SpokenMarkup.tokenize(raw)],
         ]
         let body: [String: Any] = openAI
